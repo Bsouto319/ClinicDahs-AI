@@ -1,13 +1,2199 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ClinicDash-AI | Nexus AI Bills Analista</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Financeiro IA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0f12;
+  --surface: #141720;
+  --surface2: #1a1f2e;
+  --surface3: #1f2535;
+  --border: rgba(255,255,255,0.06);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e2e8f4;
+  --text2: #8892a4;
+  --text3: #4e5769;
+  --green: #22d3a0;
+  --green2: rgba(34,211,160,0.15);
+  --green3: rgba(34,211,160,0.06);
+  --red: #f5456e;
+  --red2: rgba(245,69,110,0.15);
+  --blue: #4f8ef7;
+  --blue2: rgba(79,142,247,0.15);
+  --amber: #f5a623;
+  --amber2: rgba(245,166,35,0.15);
+  --purple: #a78bfa;
+  --purple2: rgba(167,139,250,0.15);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Space Grotesk', sans-serif; font-size: 14px; min-height: 100vh; overflow-x: hidden; }
+
+/* UPLOAD SCREEN */
+#uploadScreen {
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 28px; padding: 40px; background: radial-gradient(ellipse at 50% 0%, rgba(34,211,160,0.04) 0%, transparent 60%);
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgba(34,211,160,0.4); animation: brandPulse 2s infinite; }
+@keyframes brandPulse { 0%,100%{box-shadow:0 0 0 0 rgba(34,211,160,0.4)} 50%{box-shadow:0 0 0 8px rgba(34,211,160,0)} }
+.brand-name { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; letter-spacing: 0.15em; color: var(--green); text-transform: uppercase; }
+.upload-heading { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; text-align: center; line-height: 1.2; }
+.upload-heading span { color: var(--green); }
+.upload-sub { font-size: 15px; color: var(--text2); text-align: center; max-width: 460px; line-height: 1.6; }
+.drop-zone {
+  width: 500px; max-width: 100%;
+  border: 1.5px dashed var(--border2);
+  border-radius: 20px;
+  padding: 52px 40px;
+  text-align: center; cursor: pointer; position: relative;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--surface);
+}
+.drop-zone:hover, .drop-zone.drag-over { border-color: var(--green); background: var(--green3); }
+.drop-icon { width: 56px; height: 56px; background: var(--green2); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+.drop-icon svg { width: 26px; height: 26px; stroke: var(--green); fill: none; stroke-width: 1.5; }
+.drop-title { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+.drop-hint { font-size: 13px; color: var(--text2); line-height: 1.6; }
+.drop-hint b { color: var(--green); font-weight: 500; }
+input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 500px; }
+.chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 5px 13px; font-size: 12px; color: var(--text2); font-family: 'JetBrains Mono', monospace; }
+.chip b { color: var(--text); font-weight: 400; }
+.error-box { background: var(--red2); border: 1px solid rgba(245,69,110,0.3); color: var(--red); padding: 12px 20px; border-radius: 10px; font-size: 13px; display: none; max-width: 500px; text-align: center; }
+
+/* DASHBOARD */
+#dashboard { display: none; }
+.header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 28px; height: 56px; display: flex; align-items: center;
+  justify-content: space-between; position: sticky; top: 0; z-index: 100;
+}
+.header-left { display: flex; align-items: center; gap: 16px; }
+.header-logo { display: flex; align-items: center; gap: 8px; }
+.file-chip { background: var(--green3); border: 1px solid rgba(34,211,160,0.2); color: var(--green); padding: 3px 12px; border-radius: 20px; font-size: 11px; font-family: 'JetBrains Mono', monospace; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.nav { display: flex; gap: 2px; }
+.nav-btn { background: transparent; border: none; color: var(--text2); padding: 6px 14px; border-radius: 8px; cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 500; transition: all 0.15s; }
+.nav-btn:hover { background: var(--surface2); color: var(--text); }
+.nav-btn.active { background: var(--green2); color: var(--green); }
+.btn-reset { background: transparent; border: 1px solid var(--border2); color: var(--text2); padding: 6px 14px; border-radius: 8px; cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-size: 12px; transition: all 0.15s; }
+.btn-reset:hover { border-color: var(--red); color: var(--red); }
+
+/* EXPORT BUTTON */
+.btn-export {
+  background: var(--blue2); border: 1px solid rgba(79,142,247,0.35);
+  color: var(--blue); padding: 6px 14px; border-radius: 8px;
+  cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 500;
+  transition: all 0.15s; display: flex; align-items: center; gap: 6px;
+}
+.btn-export:hover { background: rgba(79,142,247,0.25); }
+
+/* EXPORT MODAL */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: none; align-items: center; justify-content: center; z-index: 200;
+  backdrop-filter: blur(6px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 18px; width: 520px; max-width: calc(100vw - 40px);
+  overflow: hidden; animation: modalIn 0.2s ease;
+}
+@keyframes modalIn { from{transform:scale(0.95);opacity:0} to{transform:scale(1);opacity:1} }
+.modal-head {
+  padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; }
+.modal-close { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 20px; line-height: 1; padding: 2px 6px; border-radius: 6px; transition: all 0.15s; }
+.modal-close:hover { background: var(--surface2); color: var(--text); }
+.modal-body { padding: 20px 24px; }
+.export-section { margin-bottom: 20px; }
+.export-section-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text3); margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; }
+.export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.export-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 16px; cursor: pointer;
+  transition: all 0.15s; display: flex; align-items: flex-start; gap: 12px;
+}
+.export-card:hover { border-color: var(--border2); background: var(--surface3); transform: translateY(-1px); }
+.export-card:active { transform: translateY(0); }
+.export-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.export-icon svg { width: 18px; height: 18px; }
+.export-card-info { flex: 1; min-width: 0; }
+.export-card-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.export-card-desc { font-size: 11px; color: var(--text3); line-height: 1.4; }
+.export-icon.csv { background: rgba(34,211,160,0.15); }
+.export-icon.csv svg { stroke: var(--green); }
+.export-icon.xlsx { background: rgba(79,142,247,0.15); }
+.export-icon.xlsx svg { stroke: var(--blue); }
+.export-icon.json { background: rgba(245,166,35,0.15); }
+.export-icon.json svg { stroke: var(--amber); }
+.export-icon.pdf { background: rgba(245,69,110,0.15); }
+.export-icon.pdf svg { stroke: var(--red); }
+.export-icon.rel { background: rgba(167,139,250,0.15); }
+.export-icon.rel svg { stroke: var(--purple); }
+.export-filter-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.export-sel {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 6px 10px; border-radius: 8px; font-family: 'Space Grotesk', sans-serif; font-size: 12px; outline: none;
+}
+.export-sel:focus { border-color: var(--blue); }
+.export-stats { display: flex; gap: 8px; margin-bottom: 16px; }
+.export-stat { background: var(--surface3); border-radius: 8px; padding: 8px 12px; font-size: 11px; flex: 1; text-align: center; }
+.export-stat-val { font-size: 14px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--text); margin-bottom: 2px; }
+.export-stat-lbl { color: var(--text3); }
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--surface); border: 1px solid var(--green);
+  color: var(--green); padding: 10px 18px; border-radius: 10px;
+  font-size: 13px; font-weight: 500; z-index: 999;
+  display: none; align-items: center; gap: 8px;
+  animation: toastIn 0.2s ease;
+}
+@keyframes toastIn { from{transform:translateY(10px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+/* AI BUTTON */
+.btn-ai {
+  background: linear-gradient(135deg, rgba(34,211,160,0.2), rgba(79,142,247,0.2));
+  border: 1px solid rgba(34,211,160,0.4);
+  color: var(--green); padding: 6px 16px; border-radius: 8px;
+  cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 500;
+  transition: all 0.15s; display: flex; align-items: center; gap: 6px;
+}
+.btn-ai:hover { background: linear-gradient(135deg, rgba(34,211,160,0.3), rgba(79,142,247,0.3)); }
+.ai-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: brandPulse 1.5s infinite; }
+
+/* MAIN */
+.main { padding: 24px 28px; max-width: 1600px; margin: 0 auto; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* KPI ROW */
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; position: relative; overflow: hidden; }
+.kpi::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+.kpi.g::after { background: linear-gradient(90deg, var(--green), transparent 70%); }
+.kpi.r::after { background: linear-gradient(90deg, var(--red), transparent 70%); }
+.kpi.b::after { background: linear-gradient(90deg, var(--blue), transparent 70%); }
+.kpi.a::after { background: linear-gradient(90deg, var(--amber), transparent 70%); }
+.kpi-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); margin-bottom: 10px; }
+.kpi-val { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; margin-bottom: 6px; }
+.kpi.g .kpi-val { color: var(--green); }
+.kpi.r .kpi-val { color: var(--red); }
+.kpi.b .kpi-val { color: var(--blue); }
+.kpi.a .kpi-val { color: var(--amber); }
+.kpi-sub { font-size: 12px; color: var(--text2); }
+
+/* GRID */
+.g2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px; }
+.g3 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 16px; }
+.gfull { margin-bottom: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.panel-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.panel-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text2); }
+.panel-tag { font-size: 11px; color: var(--text3); background: var(--surface2); padding: 3px 10px; border-radius: 20px; font-family: 'JetBrains Mono', monospace; }
+.panel-body { padding: 18px; }
+.chart-h { position: relative; }
+.chart-h-sm { height: 200px; }
+.chart-h-md { height: 260px; }
+.chart-h-lg { height: 300px; }
+
+/* BAR LIST */
+.bar-list { display: flex; flex-direction: column; gap: 10px; }
+.bar-item { }
+.bar-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.bar-name { font-size: 12px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65%; }
+.bar-val { font-size: 12px; font-weight: 600; color: var(--text); font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+.bar-track { height: 4px; background: var(--surface3); border-radius: 2px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 2px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+
+/* BANK CARDS */
+.bank-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.bank-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.bank-name { font-size: 13px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.bank-dot { width: 8px; height: 8px; border-radius: 50%; }
+.bank-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: var(--text2); }
+.bank-row span:last-child { font-family: 'JetBrains Mono', monospace; color: var(--text); }
+.bank-saldo { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+
+/* TABLE */
+.tbl-filters { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+.tbl-search, .tbl-sel {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 7px 12px; border-radius: 8px; font-family: 'Space Grotesk', sans-serif; font-size: 12px;
+  outline: none; transition: border-color 0.2s;
+}
+.tbl-search { width: 220px; }
+.tbl-search:focus, .tbl-sel:focus { border-color: var(--green); }
+.tbl-search::placeholder { color: var(--text3); }
+.tbl-count { font-size: 12px; color: var(--text3); margin-left: auto; font-family: 'JetBrains Mono', monospace; }
+.tbl-wrap { overflow-x: auto; max-height: 500px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th { padding: 10px 14px; text-align: left; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); border-bottom: 1px solid var(--border); white-space: nowrap; position: sticky; top: 0; background: var(--surface); z-index: 2; }
+tbody tr { border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.1s; }
+tbody tr:hover { background: var(--surface2); }
+tbody td { padding: 9px 14px; font-size: 12px; color: var(--text2); white-space: nowrap; }
+.td-g { color: var(--green) !important; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.td-r { color: var(--red) !important; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; }
+.b-in { background: var(--green2); color: var(--green); }
+.b-out { background: var(--red2); color: var(--red); }
+
+/* DONUT LAYOUT */
+.donut-wrap { display: flex; align-items: center; gap: 20px; }
+.donut-legend { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.leg-item { display: flex; align-items: center; gap: 8px; }
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.leg-name { font-size: 12px; color: var(--text2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leg-val { font-size: 12px; font-weight: 600; font-family: 'JetBrains Mono', monospace; color: var(--text); }
+.leg-pct { font-size: 10px; color: var(--text3); margin-left: 4px; }
+
+/* AI PANEL */
+.ai-panel {
+  background: var(--surface); border: 1px solid rgba(34,211,160,0.2);
+  border-radius: 14px; overflow: hidden; margin-bottom: 16px;
+}
+.ai-panel-head { padding: 14px 18px; border-bottom: 1px solid rgba(34,211,160,0.1); display: flex; align-items: center; gap: 10px; }
+.ai-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--green); }
+.ai-body { padding: 18px; min-height: 80px; }
+.ai-thinking { display: flex; align-items: center; gap: 10px; color: var(--text3); font-size: 13px; }
+.ai-dots span { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--green); animation: dot 1.4s infinite; margin: 0 2px; }
+.ai-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ai-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dot { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+.ai-content { font-size: 13px; line-height: 1.7; color: var(--text2); }
+.ai-content strong { color: var(--text); font-weight: 600; }
+.ai-content .hl-g { color: var(--green); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.ai-content .hl-r { color: var(--red); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.ai-content .hl-b { color: var(--blue); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+.ai-content ul { padding-left: 16px; margin: 8px 0; }
+.ai-content li { margin-bottom: 4px; }
+.ai-ask-row { padding: 14px 18px; border-top: 1px solid rgba(34,211,160,0.1); display: flex; gap: 8px; }
+.ai-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 14px; border-radius: 8px; font-family: 'Space Grotesk', sans-serif; font-size: 13px; outline: none; transition: border-color 0.2s; }
+.ai-input:focus { border-color: var(--green); }
+.ai-input::placeholder { color: var(--text3); }
+.ai-send { background: var(--green2); border: 1px solid rgba(34,211,160,0.3); color: var(--green); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 500; transition: all 0.15s; }
+.ai-send:hover { background: rgba(34,211,160,0.25); }
+.ai-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* LOADING */
+#loadingOverlay {
+  position: fixed; inset: 0; background: rgba(13,15,18,0.8);
+  display: none; align-items: center; justify-content: center; z-index: 999;
+  flex-direction: column; gap: 14px; backdrop-filter: blur(4px);
+}
+.spinner { width: 32px; height: 32px; border: 2px solid var(--border2); border-top-color: var(--green); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-txt { font-size: 12px; color: var(--text2); font-family: 'JetBrains Mono', monospace; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+@media (max-width: 800px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .g2, .g3 { grid-template-columns: 1fr; }
+  .header { padding: 0 16px; }
+  .main { padding: 16px; }
+  .nav-btn { padding: 6px 10px; font-size: 12px; }
+}
+
+/* API KEY INPUT */
+.api-key-wrap {
+  width: 500px; max-width: 100%;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px;
+}
+.api-key-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text3); font-family: 'JetBrains Mono',monospace; }
+.api-key-row { display: flex; gap: 8px; align-items: center; }
+.api-key-input {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text); padding: 9px 14px; border-radius: 8px;
+  font-family: 'JetBrains Mono',monospace; font-size: 12px; outline: none;
+  transition: border-color 0.2s; letter-spacing: 0.02em;
+}
+.api-key-input:focus { border-color: var(--green); }
+.api-key-input::placeholder { color: var(--text3); letter-spacing: 0; }
+.api-key-save {
+  background: var(--green2); border: 1px solid rgba(34,211,160,0.3); color: var(--green);
+  padding: 9px 16px; border-radius: 8px; cursor: pointer;
+  font-family: 'Space Grotesk',sans-serif; font-size: 12px; font-weight: 600;
+  transition: all 0.15s; white-space: nowrap;
+}
+.api-key-save:hover { background: rgba(34,211,160,0.25); }
+.api-key-hint { font-size: 11px; color: var(--text3); line-height: 1.5; }
+.api-key-hint a { color: var(--blue); text-decoration: none; }
+.api-key-hint a:hover { text-decoration: underline; }
+.api-key-status { font-size: 11px; display: flex; align-items: center; gap: 5px; }
+.api-key-status.ok { color: var(--green); }
+.api-key-status.empty { color: var(--text3); }
+
+/* AI panel key warning */
+.ai-no-key {
+  padding: 14px 18px; display: flex; align-items: center; gap: 12px;
+  background: var(--amber2); border-radius: 8px; margin: 4px;
+}
+.ai-no-key-txt { font-size: 12px; color: var(--amber); line-height: 1.5; }
+.ai-no-key-btn {
+  background: var(--amber2); border: 1px solid rgba(245,166,35,0.4);
+  color: var(--amber); padding: 6px 14px; border-radius: 7px; cursor: pointer;
+  font-family: 'Space Grotesk',sans-serif; font-size: 11px; font-weight: 600;
+  white-space: nowrap; transition: all 0.15s; flex-shrink: 0;
+}
+.ai-no-key-btn:hover { background: rgba(245,166,35,0.25); }
+
+
+/* ── PACIENTE PAGE ── */
+.pac-search-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 20px 22px; margin-bottom: 16px;
+}
+.pac-search-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.pac-search-big {
+  flex: 1; min-width: 260px;
+  background: var(--surface2); border: 1.5px solid var(--border2);
+  color: var(--text); padding: 10px 16px; border-radius: 10px;
+  font-family: 'Space Grotesk', sans-serif; font-size: 14px; outline: none;
+  transition: border-color 0.2s;
+}
+.pac-search-big:focus { border-color: var(--green); }
+.pac-search-big::placeholder { color: var(--text3); }
+.pac-date-group { display: flex; flex-direction: column; gap: 4px; }
+.pac-date-lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); font-family: 'JetBrains Mono', monospace; }
+.pac-date-row { display: flex; align-items: center; gap: 6px; }
+.pac-date-input {
+  background: var(--surface2); border: 1px solid var(--border2); color: var(--text);
+  padding: 8px 10px; border-radius: 8px; font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; outline: none; width: 130px; transition: border-color 0.2s;
+}
+.pac-date-input:focus { border-color: var(--green); }
+.pac-date-sep { font-size: 11px; color: var(--text3); }
+.pac-medico-sel {
+  background: var(--surface2); border: 1px solid var(--border2); color: var(--text);
+  padding: 10px 12px; border-radius: 10px; font-family: 'Space Grotesk', monospace;
+  font-size: 13px; outline: none; min-width: 160px; transition: border-color 0.2s;
+  height: 42px;
+}
+.pac-medico-sel:focus { border-color: var(--green); }
+.pac-search-btn {
+  background: var(--green2); border: 1px solid rgba(34,211,160,0.35);
+  color: var(--green); padding: 10px 22px; border-radius: 10px; cursor: pointer;
+  font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 600;
+  transition: all 0.15s; height: 42px; white-space: nowrap;
+}
+.pac-search-btn:hover { background: rgba(34,211,160,0.25); }
+.pac-suggestions {
+  margin-top: 12px;
+}
+.pac-sug-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--text3); font-family: 'JetBrains Mono', monospace; margin-bottom: 8px;
+}
+.pac-sug-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 6px;
+}
+.pac-sug-chip {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text2); padding: 8px 14px; border-radius: 10px;
+  font-size: 12px; cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; gap: 10px; width: 100%;
+}
+.pac-sug-chip:hover { border-color: var(--green); background: var(--green3); }
+.pac-sug-chip:hover .pac-sug-name { color: var(--green); }
+.pac-sug-name { font-weight: 600; color: var(--text); font-size: 12px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pac-sug-sub { font-size: 10px; color: var(--text3); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pac-sug-count { font-size: 10px; color: var(--text3); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; background: var(--surface3); padding: 2px 6px; border-radius: 4px; }
+
+/* PATIENT RESULT */
+.pac-result { display: none; }
+.pac-header-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 20px 24px; margin-bottom: 16px;
+  display: flex; align-items: flex-start; gap: 20px; flex-wrap: wrap;
+}
+.pac-avatar {
+  width: 56px; height: 56px; border-radius: 14px; background: var(--green2);
+  border: 1px solid rgba(34,211,160,0.3); display: flex; align-items: center;
+  justify-content: center; font-size: 20px; font-weight: 800;
+  color: var(--green); font-family: 'Space Grotesk', sans-serif; flex-shrink: 0;
+}
+.pac-info { flex: 1; min-width: 0; }
+.pac-name { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
+.pac-meta { font-size: 12px; color: var(--text2); display: flex; gap: 16px; flex-wrap: wrap; }
+.pac-meta span { display: flex; align-items: center; gap: 4px; }
+.pac-kpis { display: flex; gap: 12px; flex-wrap: wrap; margin-left: auto; }
+.pac-kpi { text-align: right; }
+.pac-kpi-val { font-size: 18px; font-weight: 700; font-family: 'JetBrains Mono', monospace; line-height: 1; }
+.pac-kpi-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); margin-top: 3px; }
+
+/* TIMELINE */
+.timeline { display: flex; flex-direction: column; gap: 0; }
+.tl-item { display: flex; gap: 16px; padding: 0 0 0 0; position: relative; }
+.tl-item:not(:last-child) .tl-line { position: absolute; left: 19px; top: 40px; bottom: 0; width: 1px; background: var(--border); z-index: 0; }
+.tl-dot-wrap { flex-shrink: 0; width: 40px; display: flex; flex-direction: column; align-items: center; padding-top: 14px; position: relative; z-index: 1; }
+.tl-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.tl-dot.entrada { background: var(--green); box-shadow: 0 0 0 3px rgba(34,211,160,0.2); }
+.tl-dot.saida { background: var(--red); box-shadow: 0 0 0 3px rgba(245,69,110,0.2); }
+.tl-card {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 16px; margin-bottom: 8px;
+  transition: border-color 0.15s;
+}
+.tl-card:hover { border-color: var(--border2); }
+.tl-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.tl-date { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text3); }
+.tl-valor { font-size: 15px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+.tl-valor.entrada { color: var(--green); }
+.tl-valor.saida { color: var(--red); }
+.tl-desc { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.tl-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; }
+.tl-tag { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; }
+.tl-tag.forma { background: var(--blue2); color: var(--blue); }
+.tl-tag.banco { background: var(--purple2); color: var(--purple); }
+.tl-tag.medico { background: var(--amber2); color: var(--amber); }
+
+.pac-empty {
+  text-align: center; padding: 60px 20px; color: var(--text3);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+}
+.pac-empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+.pac-empty-txt { font-size: 14px; color: var(--text2); }
+.pac-empty-sub { font-size: 12px; color: var(--text3); margin-top: 6px; }
+.pac-no-result {
+  text-align: center; padding: 48px 20px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+}
+
+
+/* EXPORT PATIENT CONTEXT BANNER */
+.exp-pac-banner {
+  display: none; align-items: center; gap: 12px;
+  background: linear-gradient(135deg, rgba(34,211,160,0.12), rgba(79,142,247,0.08));
+  border: 1px solid rgba(34,211,160,0.3); border-radius: 10px;
+  padding: 12px 16px; margin-bottom: 16px;
+}
+.exp-pac-avatar {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: var(--green2); border: 1px solid rgba(34,211,160,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.exp-pac-info { flex: 1; min-width: 0; }
+.exp-pac-name { font-size: 14px; font-weight: 700; color: var(--text); }
+.exp-pac-sub { font-size: 11px; color: var(--green); margin-top: 2px; }
+.exp-pac-badge {
+  background: var(--green2); border: 1px solid rgba(34,211,160,0.3);
+  color: var(--green); padding: 3px 10px; border-radius: 6px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; white-space: nowrap;
+}
+
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-txt" id="loadingTxt">Lendo planilha...</div>
+</div>
+
+<!-- ===== UPLOAD ===== -->
+<div id="uploadScreen">
+  <div class="brand">
+    <div class="brand-pulse"></div>
+    <div class="brand-name">FinancIA</div>
+  </div>
+  <div>
+    <div class="upload-heading">Dashboard Financeiro<br><span>com Análise IA</span></div>
+  </div>
+  <div class="upload-sub">Faça upload da sua planilha e receba análises inteligentes automaticamente, sem precisar de n8n ou qualquer servidor.</div>
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+    <div class="drop-icon">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9,15 12,12 15,15"/></svg>
+    </div>
+    <div class="drop-title">Arraste sua planilha aqui</div>
+    <div class="drop-hint">ou <b>clique para selecionar</b> &nbsp;·&nbsp; .xlsx · .xls · .csv</div>
+  </div>
+  <div class="chip-row">
+    <div class="chip"><b>Formato A</b> Tipo de Transacao + Valor Entrada + Valor Saida</div>
+    <div class="chip"><b>Formato B</b> Tipo (Entrada/Saída) + Valor único</div>
+    <div class="chip"><b>Aba</b> detectada automaticamente (Extrato, Fluxo...)</div>
+  </div>
+
+  <div class="api-key-wrap">
+    <div class="api-key-label">🔑 Chave da API Anthropic (opcional — para análise com IA)</div>
+    <div class="api-key-row">
+      <input class="api-key-input" id="apiKeyInput" type="password" placeholder="sk-ant-api03-..." autocomplete="off" spellcheck="false">
+      <button class="api-key-save" onclick="saveApiKey()">Salvar</button>
+    </div>
+    <div class="api-key-hint">
+      Fica salva só neste browser. Nunca enviada para nenhum servidor nosso.<br>
+      Obtenha em <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a>
+    </div>
+    <div class="api-key-status empty" id="apiKeyStatus">⬤ &nbsp;Nenhuma chave configurada — análise IA desativada</div>
+  </div>
+
+  <div class="error-box" id="errBox"></div>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div id="dashboard">
+  <header class="header">
+    <div class="header-left">
+      <div class="header-logo">
+        <div class="brand-pulse"></div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;color:var(--green);letter-spacing:0.1em">FinancIA</span>
+      </div>
+      <div class="file-chip" id="fileBadge"></div>
+    </div>
+    <div class="header-right">
+      <div class="nav">
+        <button class="nav-btn active" onclick="gotoPage('overview',this)">Visão Geral</button>
+        <button class="nav-btn" onclick="gotoPage('categorias',this)">Categorias</button>
+        <button class="nav-btn" onclick="gotoPage('bancos',this)">Bancos</button>
+        <button class="nav-btn" onclick="gotoPage('transacoes',this)">Transações</button>
+        <button class="nav-btn" onclick="gotoPage('paciente',this)">👤 Paciente</button>
+      </div>
+      <button class="btn-ai" id="btnAI" onclick="toggleAI()">
+        <div class="ai-dot"></div>
+        Analisar com IA
+      </button>
+      <button class="btn-export" onclick="openExport()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar
+      </button>
+      <button class="btn-reset" onclick="resetDash()">↩ Nova planilha</button>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- AI PANEL (shared) -->
+    <div class="ai-panel" id="aiPanel" style="display:none">
+      <div class="ai-panel-head">
+        <div class="ai-dot"></div>
+        <div class="ai-label">Análise Inteligente</div>
+        <span style="font-size:11px;color:var(--text3);margin-left:auto">Powered by Claude</span>
+        <button id="aiKeyBtn" onclick="toggleKeyPanel()" style="display:none;background:var(--amber2);border:1px solid rgba(245,166,35,0.3);color:var(--amber);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:600;font-family:Space Grotesk,sans-serif;margin-left:8px">⚙ API Key</button>
+      </div>
+      <div id="aiKeyPanel" style="display:none;padding:12px 18px;border-bottom:1px solid rgba(245,166,35,0.15);background:rgba(245,166,35,0.05)">
+        <div style="font-size:11px;color:var(--amber);margin-bottom:8px;font-weight:600">Configure sua chave Anthropic para usar a IA</div>
+        <div style="display:flex;gap:8px">
+          <input class="api-key-input" id="apiKeyInput2" type="password" placeholder="sk-ant-api03-..." style="flex:1;font-size:12px" autocomplete="off">
+          <button class="api-key-save" onclick="saveApiKey2()" style="font-size:11px;padding:6px 12px">Salvar</button>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:6px">Obtém em console.anthropic.com/settings/keys · Salva só neste browser</div>
+      </div>
+      <div class="ai-body" id="aiBody">
+        <div class="ai-thinking" id="aiThinking" style="display:none">
+          <div class="ai-dots"><span></span><span></span><span></span></div>
+          Analisando seus dados financeiros...
+        </div>
+        <div class="ai-content" id="aiContent"></div>
+      </div>
+      <div class="ai-ask-row">
+        <input class="ai-input" id="aiInput" placeholder="Pergunte algo sobre seus gastos..." onkeydown="if(event.key==='Enter')askAI()">
+        <button class="ai-send" id="aiSendBtn" onclick="askAI()">Perguntar ↗</button>
+      </div>
+    </div>
+
+    <!-- PAGE: OVERVIEW -->
+    <div class="page active" id="page-overview">
+      <div class="kpi-row">
+        <div class="kpi g"><div class="kpi-label">Total Entradas</div><div class="kpi-val" id="kpiEnt">—</div><div class="kpi-sub" id="kpiEntSub"></div></div>
+        <div class="kpi r"><div class="kpi-label">Total Saídas</div><div class="kpi-val" id="kpiSai">—</div><div class="kpi-sub" id="kpiSaiSub"></div></div>
+        <div class="kpi a"><div class="kpi-label">Resultado</div><div class="kpi-val" id="kpiSaldo" style="font-size:22px">—</div><div class="kpi-sub" id="kpiSaldoSub"></div></div>
+        <div class="kpi b"><div class="kpi-label">Transações</div><div class="kpi-val" id="kpiN">—</div><div class="kpi-sub" id="kpiNSub"></div></div>
+      </div>
+      <div class="g2">
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">Fluxo Mensal</span><span class="panel-tag">Entrada vs Saída</span></div>
+          <div class="panel-body"><div class="chart-h chart-h-md"><canvas id="chartFluxo"></canvas></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">Distribuição de Saídas</span><span class="panel-tag">Top categorias</span></div>
+          <div class="panel-body">
+            <div class="donut-wrap">
+              <div style="width:160px;height:160px;flex-shrink:0"><canvas id="chartDonut"></canvas></div>
+              <div class="donut-legend" id="donutLegend"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel gfull">
+        <div class="panel-head"><span class="panel-title">Top 15 Maiores Despesas</span><span class="panel-tag">Por valor</span></div>
+        <div class="panel-body"><div class="chart-h chart-h-lg"><canvas id="chartTopDesp"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- PAGE: CATEGORIAS -->
+    <div class="page" id="page-categorias">
+      <div class="g2">
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">Saídas por Categoria</span><span class="panel-tag">Ranking</span></div>
+          <div class="panel-body"><div class="bar-list" id="barCatOut"></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">Entradas por Categoria</span><span class="panel-tag">Ranking</span></div>
+          <div class="panel-body"><div class="bar-list" id="barCatIn"></div></div>
+        </div>
+      </div>
+      <div class="panel gfull">
+        <div class="panel-head"><span class="panel-title">Categorias — Barras Comparativas</span></div>
+        <div class="panel-body"><div class="chart-h chart-h-lg"><canvas id="chartCatBar"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- PAGE: BANCOS -->
+    <div class="page" id="page-bancos">
+      <div class="bank-grid" id="bankCards"></div>
+      <div class="g2">
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">Saída por Banco / Cartão</span></div>
+          <div class="panel-body"><div class="chart-h chart-h-md"><canvas id="chartBankOut"></canvas></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">Comparativo Entrada vs Saída</span></div>
+          <div class="panel-body"><div class="chart-h chart-h-md"><canvas id="chartBankComp"></canvas></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: TRANSAÇÕES -->
+    <div class="page" id="page-transacoes">
+      <div class="tbl-filters">
+        <input class="tbl-search" id="tSearch" placeholder="Buscar descrição..." oninput="filterTbl()">
+        <select class="tbl-sel" id="tTipo" onchange="filterTbl()">
+          <option value="">Todos os tipos</option>
+          <option value="Entrada">Entrada</option>
+          <option value="Saída">Saída</option>
+        </select>
+        <select class="tbl-sel" id="tBanco" onchange="filterTbl()"></select>
+        <select class="tbl-sel" id="tCat" onchange="filterTbl()"></select>
+        <span class="tbl-count" id="tCount"></span>
+      </div>
+      <div class="panel">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Data</th><th>Tipo</th><th>Descrição</th><th>Paciente / Obs.</th><th>Forma</th><th>Banco</th>
+              <th style="text-align:right">Entrada</th><th style="text-align:right">Saída</th>
+            </tr></thead>
+            <tbody id="tBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- PAGE: PACIENTE -->
+    <div class="page" id="page-paciente">
+
+      <!-- Search bar -->
+      <div class="pac-search-wrap">
+        <div class="pac-search-row">
+          <input class="pac-search-big" id="pacSearchInput" placeholder="Digite o nome do paciente..." oninput="pacSuggest()" onkeydown="if(event.key==='Enter')pacSearch()">
+          <div class="pac-date-group">
+            <div class="pac-date-lbl">Período</div>
+            <div class="pac-date-row">
+              <input type="date" class="pac-date-input" id="pacDateFrom">
+              <span class="pac-date-sep">até</span>
+              <input type="date" class="pac-date-input" id="pacDateTo">
+            </div>
+          </div>
+          <div class="pac-date-group">
+            <div class="pac-date-lbl">Médico / Categoria</div>
+            <select class="pac-medico-sel" id="pacMedicoSel">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <button class="pac-search-btn" onclick="pacSearch()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:4px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Buscar
+          </button>
+        </div>
+        <div class="pac-suggestions" id="pacSuggestions"></div>
+      </div>
+
+      <!-- Empty state -->
+      <div id="pacEmpty" class="pac-empty">
+        <div class="pac-empty-icon">🔍</div>
+        <div class="pac-empty-txt">Busque pelo nome de um paciente</div>
+        <div class="pac-empty-sub">Você pode filtrar por período e médico / categoria</div>
+      </div>
+
+      <!-- Result -->
+      <div class="pac-result" id="pacResult">
+
+        <!-- Patient header -->
+        <div class="pac-header-card" id="pacHeaderCard"></div>
+
+        <!-- KPI + chart row -->
+        <div class="g2" style="margin-bottom:16px">
+          <div class="panel">
+            <div class="panel-head"><span class="panel-title">Histórico de Valores</span><span class="panel-tag" id="pacChartTag"></span></div>
+            <div class="panel-body"><div class="chart-h chart-h-md"><canvas id="chartPaciente"></canvas></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><span class="panel-title">Formas de Pagamento</span></div>
+            <div class="panel-body">
+              <div class="donut-wrap">
+                <div style="width:140px;height:140px;flex-shrink:0"><canvas id="chartPacForma"></canvas></div>
+                <div class="donut-legend" id="pacFormaLegend"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-title">Linha do Tempo</span>
+            <span class="panel-tag" id="pacTimelineCount"></span>
+          </div>
+          <div class="panel-body">
+            <div class="timeline" id="pacTimeline"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ===== EXPORT MODAL ===== -->
+<div class="modal-overlay" id="exportModal">
+  <div class="modal" style="width:600px">
+    <div class="modal-head">
+      <div class="modal-title">📤 Exportar Dados</div>
+      <button class="modal-close" onclick="closeExport()">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- Patient context banner (shown when patient is selected) -->
+      <div class="exp-pac-banner" id="expPacBanner">
+        <div class="exp-pac-avatar">👤</div>
+        <div class="exp-pac-info">
+          <div class="exp-pac-name" id="expPacName"></div>
+          <div class="exp-pac-sub" id="expPacCount"></div>
+        </div>
+        <div class="exp-pac-badge">📋 Dados do Paciente</div>
+      </div>
+
+      <!-- Global filters (hidden when patient is selected) -->
+      <div id="expFiltersSection">
+      <div class="export-section">
+        <div class="export-section-title">Filtrar dados</div>
+        <div class="export-filter-row">
+          <select class="export-sel" id="expTipo">
+            <option value="">Todos os tipos</option>
+            <option value="Entrada">Entrada</option>
+            <option value="Saída">Saída</option>
+          </select>
+          <select class="export-sel" id="expBanco"></select>
+          <select class="export-sel" id="expCat"></select>
+        </div>
+      </div>
+      </div>
+      <div class="export-stats">
+        <div class="export-stat"><div class="export-stat-val" id="expStatN">—</div><div class="export-stat-lbl">Registros</div></div>
+        <div class="export-stat"><div class="export-stat-val" style="color:var(--green)" id="expStatEnt">—</div><div class="export-stat-lbl">Entradas</div></div>
+        <div class="export-stat"><div class="export-stat-val" style="color:var(--red)" id="expStatSai">—</div><div class="export-stat-lbl">Saídas</div></div>
+        <div class="export-stat"><div class="export-stat-val" id="expStatSaldo">—</div><div class="export-stat-lbl">Resultado</div></div>
+      </div>
+      <div class="export-section">
+        <div class="export-section-title">Formato de exportação</div>
+        <div class="export-grid">
+          <div class="export-card" onclick="doExport('csv')">
+            <div class="export-icon csv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="8" y1="13" x2="16" y2="13"/></svg></div>
+            <div class="export-card-info"><div class="export-card-name">CSV</div><div class="export-card-desc">Tabela simples, compatível com qualquer planilha</div></div>
+          </div>
+          <div class="export-card" onclick="doExport('xlsx')">
+            <div class="export-icon xlsx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+            <div class="export-card-info"><div class="export-card-name">Excel (.xlsx)</div><div class="export-card-desc">3 abas: Transações, Por Categoria e Por Banco</div></div>
+          </div>
+          <div class="export-card" onclick="doExport('json')">
+            <div class="export-icon json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16,18 22,12 16,6"/><polyline points="8,6 2,12 8,18"/></svg></div>
+            <div class="export-card-info"><div class="export-card-name">JSON</div><div class="export-card-desc">Formato estruturado para integração com APIs</div></div>
+          </div>
+          <div class="export-card" onclick="doExport('relatorio')">
+            <div class="export-icon rel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><path d="M8 13h8M8 17h5"/></svg></div>
+            <div class="export-card-info"><div class="export-card-name">Relatório HTML</div><div class="export-card-desc">Relatório completo com KPIs e tabelas formatadas</div></div>
+          </div>
+          <div class="export-card" onclick="doExport('pdf')">
+            <div class="export-icon pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><circle cx="10" cy="14" r="2"/><path d="M14 14h2M14 18h2"/></svg></div>
+            <div class="export-card-info"><div class="export-card-name">PDF Profissional</div><div class="export-card-desc">Abre em nova aba — use Ctrl+P para salvar como PDF</div></div>
+          </div>
+          <div class="export-card" onclick="doExport('whatsapp')">
+            <div class="export-icon" style="background:rgba(37,211,102,0.15)"><svg viewBox="0 0 24 24" fill="none" stroke="#25D366" stroke-width="1.5"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg></div>
+            <div class="export-card-info"><div class="export-card-name">WhatsApp</div><div class="export-card-desc">Resumo formatado para copiar e compartilhar</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast" style="display:none;align-items:center;gap:8px">
+  <span id="toastMsg"></span>
+</div>
+
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = v => 'R$ ' + Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtK = v => Math.abs(v) >= 1000 ? 'R$ '+(v/1000).toFixed(1)+'k' : fmt(v);
+const PAL = ['#22d3a0','#4f8ef7','#f5a623','#a78bfa','#f5456e','#00c8d0','#fbbf24','#34d399','#f472b6','#60a5fa','#fb923c','#a3e635','#e879f9','#38bdf8','#4ade80'];
+const PAL2 = ['#f5456e','#f5a623','#a78bfa','#22d3a0','#4f8ef7','#f472b6','#fbbf24','#e879f9'];
+
+let DATA = [], CHARTS = {};
+let PAC_CONTEXT = null; // { name, rows } when a patient is selected
+
+// ── API KEY MANAGEMENT ──
+const KEY_STORAGE = 'financia_anthropic_key';
+
+function getApiKey() {
+  return sessionStorage.getItem(KEY_STORAGE) || localStorage.getItem(KEY_STORAGE) || '';
+}
+
+function saveApiKey() {
+  const val = ($('apiKeyInput') || {}).value?.trim() || '';
+  if (!val) { updateKeyStatus(''); return; }
+  localStorage.setItem(KEY_STORAGE, val);
+  if ($('apiKeyInput')) $('apiKeyInput').value = '';
+  updateKeyStatus(val);
+  showToast('Chave salva! IA ativada.');
+}
+
+function saveApiKey2() {
+  const val = ($('apiKeyInput2') || {}).value?.trim() || '';
+  if (!val) return;
+  localStorage.setItem(KEY_STORAGE, val);
+  if ($('apiKeyInput2')) $('apiKeyInput2').value = '';
+  toggleKeyPanel();
+  updateKeyStatus(val);
+  showToast('Chave salva! IA ativada.');
+  if (DATA.length) triggerAutoAnalyze();
+}
+
+function updateKeyStatus(key) {
+  const el = $('apiKeyStatus');
+  const btn = $('aiKeyBtn');
+  if (!key) key = getApiKey();
+  if (el) {
+    if (key) {
+      el.className = 'api-key-status ok';
+      el.textContent = '⬤  Chave configurada — IA ativa';
+    } else {
+      el.className = 'api-key-status empty';
+      el.textContent = '⬤  Nenhuma chave configurada — análise IA desativada';
+    }
+  }
+  if (btn) btn.style.display = key ? 'none' : 'inline-block';
+}
+
+function toggleKeyPanel() {
+  const p = $('aiKeyPanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+// Init key status on load
+document.addEventListener('DOMContentLoaded', () => updateKeyStatus());
+
+async function callClaude(prompt) {
+  const key = getApiKey();
+  if (!key) {
+    $('aiContent').innerHTML = `
+      <div class="ai-no-key">
+        <div class="ai-no-key-txt">
+          <strong>Chave da API não configurada.</strong><br>
+          Para usar a análise com IA, configure sua chave Anthropic acima (botão "⚙ API Key") ou na tela inicial.
+        </div>
+        <button class="ai-no-key-btn" onclick="toggleKeyPanel()">⚙ Configurar agora</button>
+      </div>`;
+    $('aiThinking').style.display = 'none';
+    return null;
+  }
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg = err?.error?.message || `Erro HTTP ${res.status}`;
+    if (res.status === 401) throw new Error('Chave inválida ou expirada. Verifique em console.anthropic.com');
+    if (res.status === 429) throw new Error('Limite de requisições atingido. Aguarde um momento.');
+    throw new Error(msg);
+  }
+  const data = await res.json();
+  return data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '';
+}
+
+// ── DRAG / DROP ──
+const dz = $('dropZone'), fi = $('fileInput');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); if(e.dataTransfer.files[0]) go(e.dataTransfer.files[0]); });
+fi.addEventListener('change', e => { if(e.target.files[0]) go(e.target.files[0]); });
+
+function showErr(m) { $('errBox').textContent = m; $('errBox').style.display = m ? 'block' : 'none'; }
+function loading(on, txt) { $('loadingOverlay').style.display = on ? 'flex' : 'none'; if(txt) $('loadingTxt').textContent = txt; }
+
+// ── PARSE ──
+function go(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['xlsx','xls','csv'].includes(ext)) { showErr('Formato inválido. Use .xlsx, .xls ou .csv'); return; }
+  loading(true, 'Lendo planilha...');
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', cellDates:true});
+
+      // Try to find the best sheet: prefer "Extrato" or any with entrada/saida cols
+      const sheetName = findBestSheet(wb);
+      const ws = wb.Sheets[sheetName];
+
+      // Try format A: header on row 0 (standard), with separate Entrada/Saida cols
+      let parsed = tryFormatSplitCols(ws);
+
+      // If that fails, try format B: single Tipo + Valor col (CONTAS.xlsx style)
+      if (!parsed.length) parsed = tryFormatSingleTipo(ws);
+
+      // Last resort: any sheet in workbook
+      if (!parsed.length) {
+        for (const sn of wb.SheetNames) {
+          parsed = tryFormatSplitCols(wb.Sheets[sn]);
+          if (!parsed.length) parsed = tryFormatSingleTipo(wb.Sheets[sn]);
+          if (parsed.length) break;
+        }
+      }
+
+      if (!parsed.length) throw new Error('Nenhuma linha válida encontrada. Verifique se a planilha tem colunas de Data, Tipo (Entrada/Saída) e Valor.');
+      DATA = parsed;
+      loading(false);
+      buildDash(file.name + ' [' + sheetName + ']');
+    } catch(err) { loading(false); showErr('Erro: ' + err.message); console.error('[Parse error]', err); }
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function findBestSheet(wb) {
+  const priority = ['extrato','fluxo','transacao','lancamento','financeiro','dados'];
+  const norm = s => s.toLowerCase().replace(/[^a-z]/g,'');
+  for (const p of priority) {
+    const found = wb.SheetNames.find(s => norm(s).includes(p));
+    if (found) return found;
+  }
+  let best = wb.SheetNames[0], bestRows = 0;
+  wb.SheetNames.forEach(sn => {
+    const ws = wb.Sheets[sn];
+    if (!ws['!ref']) return;
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    if (range.e.r > bestRows) { bestRows = range.e.r; best = sn; }
+  });
+  return best;
+}
+
+// Core header finder: scans first N rows looking for a row where ALL (or most) 
+// non-empty cells are SHORT STRINGS (not numbers, not dates).
+// This correctly handles SheetJS returning cached formula numeric values for row 0.
+function findHeaderRow(ws, maxScan) {
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let r = range.s.r; r <= Math.min(range.s.r + maxScan, range.e.r); r++) {
+    const strings = [], nonStrings = [];
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({r, c})];
+      if (!cell || cell.v === null || cell.v === undefined || cell.v === '') continue;
+      const isStr = typeof cell.v === 'string' && cell.v.length > 0 && cell.v.length < 80;
+      if (isStr) strings.push({c, v: cell.v.toString().toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim()});
+      else nonStrings.push(c);
+    }
+    // A header row: majority are strings, at least 3 string labels
+    if (strings.length >= 3 && strings.length >= nonStrings.length) {
+      return {r, strings};
+    }
+  }
+  return null;
+}
+
+// Format A: separate "Valor Entrada" + "Valor Saida" columns
+function tryFormatSplitCols(ws) {
+  const result = [];
+  if (!ws || !ws['!ref']) return result;
+  const range = XLSX.utils.decode_range(ws['!ref']);
+
+  const header = findHeaderRow(ws, 6);
+  if (!header) return result;
+
+  const vals = header.strings.map(s => s.v).join(' ');
+  if (!vals.includes('entrada') || !(vals.includes('saida') || vals.includes('saída'))) return result;
+
+  // Map columns
+  const colMap = {};
+  for (const {c, v} of header.strings) {
+    if (v.includes('data') && v.includes('pagamento')) colMap.dataPag = c;
+    else if (v.includes('data') && colMap.data === undefined && colMap.dataPag === undefined) colMap.data = c;
+    
+    if (v.includes('tipo')) colMap.tipo = c;
+    if (v.includes('forma') || v === 'forma pag' || v === 'forma de pag') colMap.forma = c;
+    // paciente: match "paciente", "pac", "cliente", "nome" — but NOT "obs" alone
+    if ((v.startsWith('paciente') || v === 'cliente' || v === 'nome paciente' || v === 'nome do paciente') && colMap.paciente === undefined) colMap.paciente = c;
+    if ((v.includes('descricao') || v.includes('descri') || v.includes('historico') || v === 'categoria' || v === 'medico' || v === 'medico') && colMap.desc === undefined) colMap.desc = c;
+    if (v.includes('banco') || v.includes('conta')) colMap.banco = c;
+    if (v.includes('valor') && v.includes('entrada')) colMap.entrada = c;
+    if (v.includes('valor') && (v.includes('saida') || v.includes('saída'))) colMap.saida = c;
+  }
+  if (colMap.entrada === undefined) return result;
+
+  const get = (r, c) => { if (c === undefined) return ''; const cell = ws[XLSX.utils.encode_cell({r, c})]; return (cell && cell.v !== undefined) ? cell.v : ''; };
+
+  for (let r = header.r + 1; r <= range.e.r; r++) {
+    const entVal = parseNum(get(r, colMap.entrada));
+    const saiVal = parseNum(get(r, colMap.saida));
+    if (entVal <= 0 && saiVal <= 0) continue;
+    const tipoRaw = (get(r, colMap.tipo) || '').toString().toLowerCase();
+    const tipo = tipoRaw.includes('entr') ? 'Entrada' : (tipoRaw.includes('sa') || tipoRaw.includes('deb')) ? 'Saída' : (entVal > 0 ? 'Entrada' : 'Saída');
+    const dateCol = colMap.dataPag !== undefined ? colMap.dataPag : colMap.data;
+    result.push({
+      data: fmtDate(get(r, dateCol)),
+      desc: clean(get(r, colMap.desc)) || 'Sem categoria',
+      paciente: clean(get(r, colMap.paciente)),
+      tipo,
+      valor: tipo === 'Entrada' ? entVal : saiVal,
+      forma: clean(get(r, colMap.forma)),
+      banco: clean(get(r, colMap.banco)),
+    });
+  }
+  return result;
+}
+
+// Format B: single Tipo column + single Valor column (CONTAS.xlsx style)
+function tryFormatSingleTipo(ws) {
+  const result = [];
+  if (!ws || !ws['!ref']) return result;
+  const range = XLSX.utils.decode_range(ws['!ref']);
+
+  // Try to find header row with "tipo" label
+  const header = findHeaderRow(ws, 6);
+  let ci = {data:-1, desc:-1, tipo:-1, valor:-1, banco:-1, paciente:-1, forma:-1};
+  let startRow = 0;
+
+  if (header && header.strings.some(s => s.v.includes('tipo') || s.v.includes('transacao'))) {
+    startRow = header.r + 1;
+    for (const {c, v} of header.strings) {
+      if (v.includes('data') && v.includes('pagamento') && ci.data === -1) ci.data = c;
+      else if ((v.includes('data') || v === 'data') && ci.data === -1) ci.data = c;
+      if ((v.includes('desc') || v.includes('categ') || v.includes('servico')) && ci.desc === -1) ci.desc = c;
+      if (v.includes('tipo') || v.includes('transacao')) ci.tipo = c;
+      if ((v === 'valor' || (v.includes('valor') && !v.includes('entrada') && !v.includes('saida'))) && ci.valor === -1) ci.valor = c;
+      if (v.includes('banco') || v.includes('conta') || v.includes('cartao')) ci.banco = c;
+      if (v.includes('paciente')) ci.paciente = c;
+      if (v.includes('forma')) ci.forma = c;
+    }
+  } else {
+    // No header found — scan data rows to guess columns by content (CONTAS.xlsx layout)
+    for (let r = range.s.r; r <= Math.min(range.s.r + 20, range.e.r); r++) {
+      const tipoCell = ws[XLSX.utils.encode_cell({r, c:2})];
+      const valorCell = ws[XLSX.utils.encode_cell({r, c:3})];
+      if (!tipoCell || !valorCell) continue;
+      const t = (tipoCell.v||'').toString().trim();
+      if ((t === 'Entrada' || t === 'Saída' || t === 'Saida') && parseNum(valorCell.v) > 0) {
+        ci = {data:0, desc:1, tipo:2, valor:3, banco:6};
+        startRow = r;
+        break;
+      }
+    }
+    if (ci.tipo === -1) return result;
+  }
+
+  const get = (r, c) => { if (c < 0) return ''; const cell = ws[XLSX.utils.encode_cell({r, c})]; return (cell && cell.v !== undefined) ? cell.v : ''; };
+
+  for (let r = startRow; r <= range.e.r; r++) {
+    const tipoRaw = (get(r, ci.tipo) || '').toString().trim();
+    const tipo = tipoRaw === 'Entrada' ? 'Entrada' : (tipoRaw === 'Saída' || tipoRaw === 'Saida') ? 'Saída' : '';
+    if (!tipo) continue;
+    const valor = parseNum(get(r, ci.valor));
+    if (valor <= 0) continue;
+    result.push({
+      data: fmtDate(get(r, ci.data)),
+      desc: clean(get(r, ci.desc)) || 'Sem categoria',
+      paciente: ci.paciente >= 0 ? clean(get(r, ci.paciente)) : '',
+      tipo,
+      valor,
+      forma: ci.forma >= 0 ? clean(get(r, ci.forma)) : '',
+      banco: clean(get(r, ci.banco)),
+    });
+  }
+  return result;
+}
+
+function clean(v) { return (v||'').toString().trim().replace(/\s+/g,' '); }
+function parseNum(v) {
+  if (!v && v !== 0) return 0;
+  const s = v.toString().replace(/[^\d,.-]/g,'').replace(',','.');
+  const n = parseFloat(s); return isNaN(n) ? 0 : Math.abs(n);
+}
+function fmtDate(v) {
+  if (!v) return '';
+  if (v instanceof Date) return v.toLocaleDateString('pt-BR');
+  // Handle Excel serial date numbers
+  if (typeof v === 'number' && v > 40000) {
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    return d.toLocaleDateString('pt-BR');
+  }
+  const s = v.toString().trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) { const [y,m,d] = s.split(/[-T]/); return `${d}/${m}/${y}`; }
+  return s;
+}
+
+// ── BUILD ──
+function buildDash(fname) {
+  Object.values(CHARTS).forEach(c => c.destroy());
+  CHARTS = {}; $('aiContent').innerHTML = ''; $('aiPanel').style.display = 'none';
+
+  $('fileBadge').textContent = '📁 ' + fname;
+  $('uploadScreen').style.display = 'none';
+  $('dashboard').style.display = 'block';
+  gotoPage('overview', document.querySelector('.nav-btn'));
+
+  const totalEnt = DATA.filter(d=>d.tipo==='Entrada').reduce((s,d)=>s+d.valor,0);
+  const totalSai = DATA.filter(d=>d.tipo==='Saída').reduce((s,d)=>s+d.valor,0);
+  const saldo = totalEnt - totalSai;
+
+  $('kpiEnt').textContent = fmtK(totalEnt); $('kpiEntSub').textContent = fmt(totalEnt) + ' recebidos';
+  $('kpiSai').textContent = fmtK(totalSai); $('kpiSaiSub').textContent = fmt(totalSai) + ' pagos';
+  const sel = $('kpiSaldo'); sel.textContent = (saldo>=0?'+':'')+fmtK(saldo);
+  sel.style.color = saldo>=0 ? 'var(--green)' : 'var(--red)';
+  $('kpiSaldoSub').textContent = (saldo>=0?'Superávit':'Déficit')+' de '+fmt(Math.abs(saldo));
+  $('kpiN').textContent = DATA.length; $('kpiNSub').textContent = 'registros';
+
+  // Aggregations
+  const byMes = {}, byCatOut = {}, byCatIn = {}, byBanco = {}, topD = {};
+  DATA.forEach(d => {
+    const mes = d.data.length >= 7 ? d.data.slice(3) : (d.data || 'N/A');
+    if (!byMes[mes]) byMes[mes] = {entrada:0, saida:0};
+    if (d.tipo==='Entrada') { byMes[mes].entrada += d.valor; byCatIn[d.desc||'Outros'] = (byCatIn[d.desc||'Outros']||0)+d.valor; }
+    else { byMes[mes].saida += d.valor; byCatOut[d.desc||'Outros'] = (byCatOut[d.desc||'Outros']||0)+d.valor; topD[d.desc||'Outros'] = (topD[d.desc||'Outros']||0)+d.valor; }
+    const b = d.banco || 'Sem banco';
+    if (!byBanco[b]) byBanco[b] = {entrada:0,saida:0};
+    if (d.tipo==='Entrada') byBanco[b].entrada += d.valor; else byBanco[b].saida += d.valor;
+  });
+
+  const meses = Object.keys(byMes).sort((a,b) => {
+    const pa = a.split('/'), pb = b.split('/');
+    return (parseInt(pa[1]||0)*12+parseInt(pa[0]||0)) - (parseInt(pb[1]||0)*12+parseInt(pb[0]||0));
+  });
+  const catOutSorted = Object.entries(byCatOut).sort((a,b)=>b[1]-a[1]);
+  const catInSorted  = Object.entries(byCatIn).sort((a,b)=>b[1]-a[1]);
+  const topDespSorted = Object.entries(topD).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  const bankNames = Object.keys(byBanco).filter(b => {
+    const s = b.replace(/[^a-zA-Z]/g,'');
+    return isNaN(parseFloat(b)) && !b.includes('=') && s.length > 1;
+  });
+
+  const OPT = { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{backgroundColor:'#1a1f2e',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#e2e8f4',bodyColor:'#8892a4',padding:10}} };
+
+  // Fluxo mensal
+  CHARTS.fluxo = new Chart($('chartFluxo'), {
+    type:'bar',
+    data:{ labels:meses, datasets:[
+      {label:'Entrada',data:meses.map(m=>byMes[m].entrada),backgroundColor:'rgba(34,211,160,0.6)',borderColor:'#22d3a0',borderWidth:1,borderRadius:4},
+      {label:'Saída',data:meses.map(m=>byMes[m].saida),backgroundColor:'rgba(245,69,110,0.5)',borderColor:'#f5456e',borderWidth:1,borderRadius:4}
+    ]},
+    options:{...OPT,plugins:{...OPT.plugins,legend:{display:true,labels:{color:'#8892a4',font:{size:11},boxWidth:10}}},scales:{x:{ticks:{color:'#4e5769',font:{size:11},maxRotation:30},grid:{color:'rgba(255,255,255,0.03)'}},y:{ticks:{color:'#4e5769',font:{size:10},callback:v=>fmtK(v)},grid:{color:'rgba(255,255,255,0.03)'}}}}
+  });
+
+  // Donut top categorias saída
+  const top8 = catOutSorted.slice(0,8);
+  const totalTop = top8.reduce((s,[,v])=>s+v,0);
+  CHARTS.donut = new Chart($('chartDonut'), {
+    type:'doughnut',
+    data:{labels:top8.map(([k])=>k),datasets:[{data:top8.map(([,v])=>v),backgroundColor:PAL2,borderColor:'#141720',borderWidth:3,hoverOffset:6}]},
+    options:{...OPT,cutout:'68%',plugins:{...OPT.plugins,tooltip:{...OPT.plugins.tooltip,callbacks:{label:ctx=>` ${fmt(ctx.raw)} (${(ctx.raw/(totalTop||1)*100).toFixed(1)}%)`}}}}
+  });
+  const dl = $('donutLegend'); dl.innerHTML = '';
+  top8.forEach(([n,v],i) => { dl.innerHTML += `<div class="leg-item"><div class="leg-dot" style="background:${PAL2[i]}"></div><span class="leg-name">${n}</span><span class="leg-val">${fmtK(v)}</span><span class="leg-pct">${(v/(totalTop||1)*100).toFixed(0)}%</span></div>`; });
+
+  // Top despesas bar horizontal
+  const tdH = Math.max(topDespSorted.length * 40 + 80, 200);
+  $('chartTopDesp').parentElement.style.height = tdH + 'px';
+  CHARTS.topD = new Chart($('chartTopDesp'), {
+    type:'bar', indexAxis:'y',
+    data:{labels:topDespSorted.map(([k])=>k),datasets:[{data:topDespSorted.map(([,v])=>v),backgroundColor:topDespSorted.map((_,i)=>PAL2[i%PAL2.length]+'cc'),borderColor:topDespSorted.map((_,i)=>PAL2[i%PAL2.length]),borderWidth:1,borderRadius:4}]},
+    options:{...OPT,plugins:{...OPT.plugins,tooltip:{...OPT.plugins.tooltip,callbacks:{label:ctx=>` ${fmt(ctx.raw)}`}}},scales:{x:{ticks:{color:'#4e5769',font:{size:10},callback:v=>fmtK(v)},grid:{color:'rgba(255,255,255,0.03)'}},y:{ticks:{color:'#8892a4',font:{size:11}},grid:{display:false}}}}
+  });
+
+  // Cat out bar list
+  buildBarList($('barCatOut'), catOutSorted, 'var(--red)');
+  buildBarList($('barCatIn'), catInSorted, 'var(--green)');
+
+  // Cat bar chart
+  const allCats = catOutSorted.slice(0,12).map(([k])=>k);
+  CHARTS.catBar = new Chart($('chartCatBar'), {
+    type:'bar',
+    data:{labels:allCats,datasets:[
+      {label:'Saída',data:allCats.map(c=>byCatOut[c]||0),backgroundColor:'rgba(245,69,110,0.6)',borderColor:'#f5456e',borderWidth:1,borderRadius:4},
+      {label:'Entrada',data:allCats.map(c=>byCatIn[c]||0),backgroundColor:'rgba(34,211,160,0.5)',borderColor:'#22d3a0',borderWidth:1,borderRadius:4}
+    ]},
+    options:{...OPT,plugins:{...OPT.plugins,legend:{display:true,labels:{color:'#8892a4',font:{size:11},boxWidth:10}}},scales:{x:{ticks:{color:'#4e5769',font:{size:10},maxRotation:40},grid:{color:'rgba(255,255,255,0.03)'}},y:{ticks:{color:'#4e5769',font:{size:10},callback:v=>fmtK(v)},grid:{color:'rgba(255,255,255,0.03)'}}}}
+  });
+
+  // Bank cards
+  const bc = $('bankCards'); bc.innerHTML = '';
+  bankNames.forEach((b,i) => {
+    const ent = byBanco[b].entrada, sai = byBanco[b].saida, sal = ent-sai;
+    bc.innerHTML += `<div class="bank-card">
+      <div class="bank-name"><div class="bank-dot" style="background:${PAL[i%PAL.length]}"></div>${b}</div>
+      <div class="bank-row"><span>Entradas</span><span style="color:var(--green)">${fmt(ent)}</span></div>
+      <div class="bank-row"><span>Saídas</span><span style="color:var(--red)">${fmt(sai)}</span></div>
+      <div class="bank-saldo"><span style="color:var(--text3)">Saldo</span><span style="color:${sal>=0?'var(--green)':'var(--red)'}">${sal>=0?'+':''}${fmt(sal)}</span></div>
+    </div>`;
+  });
+
+  // Bank charts
+  CHARTS.bankOut = new Chart($('chartBankOut'), {
+    type:'doughnut',
+    data:{labels:bankNames,datasets:[{data:bankNames.map(b=>byBanco[b].saida),backgroundColor:PAL2,borderColor:'#141720',borderWidth:3}]},
+    options:{...OPT,cutout:'65%',plugins:{...OPT.plugins,legend:{display:true,position:'bottom',labels:{color:'#8892a4',font:{size:10},boxWidth:8,padding:8}},tooltip:{...OPT.plugins.tooltip,callbacks:{label:ctx=>` ${fmt(ctx.raw)}`}}}}
+  });
+  CHARTS.bankComp = new Chart($('chartBankComp'), {
+    type:'bar',
+    data:{labels:bankNames,datasets:[
+      {label:'Entrada',data:bankNames.map(b=>byBanco[b].entrada),backgroundColor:'rgba(34,211,160,0.6)',borderColor:'#22d3a0',borderWidth:1,borderRadius:4},
+      {label:'Saída',data:bankNames.map(b=>byBanco[b].saida),backgroundColor:'rgba(245,69,110,0.5)',borderColor:'#f5456e',borderWidth:1,borderRadius:4}
+    ]},
+    options:{...OPT,plugins:{...OPT.plugins,legend:{display:true,labels:{color:'#8892a4',font:{size:11},boxWidth:10}}},scales:{x:{ticks:{color:'#8892a4',font:{size:12,weight:'bold'}},grid:{display:false}},y:{ticks:{color:'#4e5769',font:{size:10},callback:v=>fmtK(v)},grid:{color:'rgba(255,255,255,0.03)'}}}}
+  });
+
+  // Table filters
+  const tBanco = $('tBanco'), tCat = $('tCat');
+  tBanco.innerHTML = '<option value="">Todos os bancos</option>';
+  tCat.innerHTML = '<option value="">Todas as categorias</option>';
+  [...new Set(DATA.map(d=>d.banco).filter(b=>b&&isNaN(parseFloat(b))&&!b.includes('=')))].sort().forEach(b => { tBanco.innerHTML += `<option value="${b}">${b}</option>`; });
+  [...new Set(DATA.map(d=>d.desc).filter(Boolean))].sort().forEach(c => { tCat.innerHTML += `<option value="${c}">${c}</option>`; });
+  $('tSearch').value = ''; $('tTipo').value = '';
+  renderTbl(DATA);
+
+  // Auto AI analysis
+  setTimeout(() => autoAnalyze(totalEnt, totalSai, saldo, catOutSorted, catInSorted, bankNames, byBanco), 800);
+}
+
+function buildBarList(el, sorted, color) {
+  el.innerHTML = '';
+  const max = sorted[0]?.[1] || 1;
+  sorted.slice(0,12).forEach(([n,v],i) => {
+    el.innerHTML += `<div class="bar-item">
+      <div class="bar-meta"><span class="bar-name">${n}</span><span class="bar-val">${fmt(v)}</span></div>
+      <div class="bar-track"><div class="bar-fill" style="background:${color};width:${(v/max*100).toFixed(1)}%"></div></div>
+    </div>`;
+  });
+}
+
+function renderTbl(rows) {
+  const tb = $('tBody'); tb.innerHTML = '';
+  $('tCount').textContent = `${rows.length} registros`;
+  rows.forEach(d => {
+    const tr = document.createElement('tr');
+    const vals = d.tipo === 'Entrada'
+      ? `<td class="td-g" style="text-align:right">${fmt(d.valor)}</td><td style="text-align:right;color:var(--text3)">—</td>`
+      : `<td style="text-align:right;color:var(--text3)">—</td><td class="td-r" style="text-align:right">${fmt(d.valor)}</td>`;
+    tr.innerHTML = `<td style="font-family:'JetBrains Mono',monospace;font-size:11px">${d.data||'—'}</td><td><span class="badge ${d.tipo==='Entrada'?'b-in':'b-out'}">${d.tipo}</span></td><td style="color:var(--text)">${d.desc||'—'}</td><td>${d.paciente||'—'}</td><td>${d.forma||'—'}</td><td>${d.banco||'—'}</td>${vals}`;
+    tb.appendChild(tr);
+  });
+}
+
+function filterTbl() {
+  const q = $('tSearch').value.toLowerCase();
+  const tipo = $('tTipo').value, banco = $('tBanco').value, cat = $('tCat').value;
+  renderTbl(DATA.filter(d =>
+    (!q || (d.desc||'').toLowerCase().includes(q) || (d.banco||'').toLowerCase().includes(q)) &&
+    (!tipo || d.tipo === tipo) && (!banco || d.banco === banco) && (!cat || d.desc === cat)
+  ));
+}
+
+// ── NAVIGATION ──
+
+// ── PACIENTE PAGE ──
+
+function initPacPage() {
+  // Populate medico/categoria select
+  const sel = $('pacMedicoSel');
+  sel.innerHTML = '<option value="">Todos</option>';
+  [...new Set(DATA.map(d => d.desc).filter(Boolean))].sort()
+    .forEach(d => { sel.innerHTML += `<option value="${d}">${d}</option>`; });
+
+  // Show suggestions of all unique patients
+  showTopPatients();
+}
+
+function showTopPatients() {
+  const sug = $('pacSuggestions');
+
+  // ONLY Entrada records with paciente field — prevents saida categories from showing
+  const patientData = {};
+  DATA.forEach(d => {
+    if (d.tipo !== 'Entrada') return;  // KEY FIX: saidas never have patients
+    const p = (d.paciente || '').trim();
+    if (!p || p.length <= 2) return;
+    if (/^(saldo|total|n\/a|na|-)$/i.test(p)) return;
+    if (!patientData[p]) patientData[p] = { total: 0, medicos: new Set(), count: 0 };
+    patientData[p].total += d.valor;
+    patientData[p].count += 1;
+    if (d.desc) patientData[p].medicos.add(d.desc);
+  });
+
+  const top = Object.entries(patientData)
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 40);
+
+  if (!top.length) {
+    sug.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">Nenhum paciente encontrado. Verifique se sua planilha tem uma coluna <strong style="color:var(--text2)">Paciente</strong> ou <strong style="color:var(--text2)">Paciente / Obs.</strong></div>';
+    return;
+  }
+
+  const chips = top.map(([n, info]) => {
+    const medStr = [...info.medicos].slice(0, 2).join(', ');
+    const safeN = n.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return '<div class="pac-sug-chip" onclick="selectPacient(\'' + safeN + '\')">'
+      + '<span style="font-size:14px;flex-shrink:0">👤</span>'
+      + '<span style="flex:1;min-width:0">'
+      + '<div class="pac-sug-name">' + n + '</div>'
+      + (medStr ? '<div class="pac-sug-sub">' + medStr + '</div>' : '')
+      + '</span>'
+      + '<span class="pac-sug-count">' + info.count + 'x</span>'
+      + '</div>';
+  }).join('');
+
+  sug.innerHTML = '<div class="pac-sug-label">👥 ' + top.length + ' paciente' + (top.length > 1 ? 's' : '') + ' encontrado' + (top.length > 1 ? 's' : '') + ' — clique para buscar</div>'
+    + '<div class="pac-sug-grid">' + chips + '</div>';
+}
+
+function pacSuggest() {
+  const q = ($('pacSearchInput').value || '').toLowerCase().trim();
+  if (!q || q.length < 2) { showTopPatients(); return; }
+
+  // Only search the paciente field — desc is médico/categoria
+  const EXCLUDE_KEYWORDS = ['saldo','total','saida','entrada','variavel','fixo','fixa','repasse','aluguel','imposto','salario','folha','carro','plano','sicoob','b16','caixa'];
+  const matches = [...new Set(
+    DATA.map(d => (d.paciente || '').trim())
+      .filter(p => {
+        if (p.length <= 2) return false;
+        const pLow = p.toLowerCase();
+        if (!pLow.includes(q)) return false;
+        if (EXCLUDE_KEYWORDS.some(k => pLow === k)) return false;
+        return true;
+      })
+  )].slice(0, 15);
+
+  const sug = $('pacSuggestions');
+  if (!matches.length) {
+    sug.innerHTML = `<span style="font-size:11px;color:var(--text3)">Nenhum paciente encontrado para "${q}"</span>`;
+    return;
+  }
+  sug.innerHTML = `
+    <div class="pac-sug-label">${matches.length} resultado${matches.length > 1 ? 's' : ''}</div>
+    <div class="pac-sug-grid">
+      ${matches.map(n => `<div class="pac-sug-chip" onclick="selectPacient('${n.replace(/'/g,"\\'")}')">
+        <span style="font-size:14px;flex-shrink:0">👤</span>
+        <span class="pac-sug-name">${n}</span>
+      </div>`).join('')}
+    </div>`;
+}
+
+function selectPacient(name) {
+  $('pacSearchInput').value = name;
+  $('pacSuggestions').innerHTML = '';
+  pacSearch();
+}
+
+function pacSearch() {
+  const q = ($('pacSearchInput').value || '').trim().toLowerCase();
+  if (!q) return;
+
+  const dateFrom = $('pacDateFrom').value;
+  const dateTo   = $('pacDateTo').value;
+  const medico   = $('pacMedicoSel').value;
+
+  // Filter ONLY by patient name (paciente field) — desc is the médico/categoria, NOT the patient
+  let rows = DATA.filter(d => {
+    const pac = (d.paciente || '').toLowerCase();
+    return pac.includes(q);
+  });
+
+  // Filter by medico/category
+  if (medico) rows = rows.filter(d => d.desc === medico);
+
+  // Filter by date range
+  if (dateFrom || dateTo) {
+    rows = rows.filter(d => {
+      if (!d.data) return true;
+      const parts = d.data.split('/');
+      if (parts.length < 3) return true;
+      const iso = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+      if (dateFrom && iso < dateFrom) return false;
+      if (dateTo   && iso > dateTo)   return false;
+      return true;
+    });
+  }
+
+  // Sort by date ascending
+  rows.sort((a, b) => {
+    const pa = (a.data||'').split('/'), pb = (b.data||'').split('/');
+    if (pa.length >= 3 && pb.length >= 3) {
+      return new Date(pa[2],pa[1]-1,pa[0]) - new Date(pb[2],pb[1]-1,pb[0]);
+    }
+    return 0;
+  });
+
+  // Save patient context for contextual export
+  PAC_CONTEXT = rows.length ? { name: ($('pacSearchInput').value||'').trim(), rows } : null;
+
+  $('pacEmpty').style.display = 'none';
+  $('pacResult').style.display = 'block';
+
+  if (!rows.length) {
+    $('pacHeaderCard').innerHTML = `
+      <div class="pac-no-result">
+        <div style="font-size:32px;margin-bottom:10px;opacity:0.4">😶</div>
+        <div style="font-size:14px;color:var(--text2)">Nenhum registro encontrado para <strong>${q}</strong></div>
+        <div style="font-size:12px;color:var(--text3);margin-top:6px">Tente outro nome ou ajuste os filtros de data</div>
+      </div>`;
+    $('pacTimeline').innerHTML = '';
+    $('pacTimelineCount').textContent = '0 registros';
+    if (CHARTS.paciente) { CHARTS.paciente.destroy(); delete CHARTS.paciente; }
+    if (CHARTS.pacForma) { CHARTS.pacForma.destroy(); delete CHARTS.pacForma; }
+    return;
+  }
+
+  // Find the best name match (most common patient name in results)
+  const nameCounts = {};
+  rows.forEach(d => { const p = (d.paciente||'').trim(); if(p) nameCounts[p] = (nameCounts[p]||0)+1; });
+  const displayName = Object.entries(nameCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || q;
+  const initials = displayName.split(' ').slice(0,2).map(w=>w[0]?.toUpperCase()||'').join('');
+
+  const totalEnt = rows.filter(d=>d.tipo==='Entrada').reduce((s,d)=>s+d.valor, 0);
+  const totalSai = rows.filter(d=>d.tipo==='Saída').reduce((s,d)=>s+d.valor, 0);
+  const medicos = [...new Set(rows.map(d=>d.desc).filter(Boolean))];
+  const datas = rows.map(d=>d.data).filter(Boolean);
+  const primeiraData = datas[0] || '—';
+  const ultimaData = datas[datas.length-1] || '—';
+
+  // ── HEADER CARD ──
+  $('pacHeaderCard').innerHTML = `
+    <div class="pac-avatar">${initials}</div>
+    <div class="pac-info">
+      <div class="pac-name">${displayName}</div>
+      <div class="pac-meta">
+        <span>📅 Primeiro atendimento: <strong>${primeiraData}</strong></span>
+        <span>📅 Último: <strong>${ultimaData}</strong></span>
+        <span>📋 ${rows.length} registro${rows.length>1?'s':''}</span>
+        ${medicos.length ? `<span>👨‍⚕️ ${medicos.slice(0,3).join(', ')}${medicos.length>3?'...':''}</span>` : ''}
+      </div>
+    </div>
+    <div class="pac-kpis">
+      ${totalEnt > 0 ? `<div class="pac-kpi"><div class="pac-kpi-val" style="color:var(--green)">${fmt(totalEnt)}</div><div class="pac-kpi-lbl">Total pago</div></div>` : ''}
+      ${totalSai > 0 ? `<div class="pac-kpi"><div class="pac-kpi-val" style="color:var(--red)">${fmt(totalSai)}</div><div class="pac-kpi-lbl">Total saída</div></div>` : ''}
+      <div class="pac-kpi"><div class="pac-kpi-val" style="color:var(--blue)">${rows.length}</div><div class="pac-kpi-lbl">Atendimentos</div></div>
+    </div>`;
+
+  // ── CHART: Valor por data ──
+  $('pacChartTag').textContent = `${rows.length} registros`;
+  const OPT = { responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#1a1f2e',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#e2e8f4',bodyColor:'#8892a4',padding:10,callbacks:{label:ctx=>` ${fmt(ctx.raw)}`}}}};
+
+  if (CHARTS.paciente) { CHARTS.paciente.destroy(); }
+  CHARTS.paciente = new Chart($('chartPaciente'), {
+    type:'bar',
+    data:{
+      labels: rows.map(d=>d.data||'?'),
+      datasets:[{
+        data: rows.map(d => d.tipo==='Entrada' ? d.valor : -d.valor),
+        backgroundColor: rows.map(d => d.tipo==='Entrada' ? 'rgba(34,211,160,0.65)' : 'rgba(245,69,110,0.55)'),
+        borderColor: rows.map(d => d.tipo==='Entrada' ? '#22d3a0' : '#f5456e'),
+        borderWidth:1, borderRadius:4
+      }]
+    },
+    options:{...OPT,
+      scales:{
+        x:{ticks:{color:'#4e5769',font:{size:10},maxRotation:45},grid:{color:'rgba(255,255,255,0.03)'}},
+        y:{ticks:{color:'#4e5769',font:{size:10},callback:v=>fmtK(Math.abs(v))},grid:{color:'rgba(255,255,255,0.03)'}}
+      }
+    }
+  });
+
+  // ── CHART: Formas de pagamento ──
+  const byForma = {};
+  rows.filter(d=>d.tipo==='Entrada').forEach(d => {
+    const f = d.forma || 'N/A';
+    byForma[f] = (byForma[f]||0) + d.valor;
+  });
+  const formaEntries = Object.entries(byForma).sort((a,b)=>b[1]-a[1]);
+  const formaColors = ['#4f8ef7','#22d3a0','#f5a623','#a78bfa','#f5456e','#f472b6'];
+  const totalForma = formaEntries.reduce((s,[,v])=>s+v,0);
+
+  if (CHARTS.pacForma) { CHARTS.pacForma.destroy(); }
+  if (formaEntries.length) {
+    CHARTS.pacForma = new Chart($('chartPacForma'), {
+      type:'doughnut',
+      data:{ labels:formaEntries.map(([k])=>k), datasets:[{data:formaEntries.map(([,v])=>v), backgroundColor:formaColors, borderColor:'#141720', borderWidth:3}]},
+      options:{...OPT, cutout:'68%', plugins:{...OPT.plugins,tooltip:{...OPT.plugins.tooltip,callbacks:{label:ctx=>` ${fmt(ctx.raw)} (${(ctx.raw/(totalForma||1)*100).toFixed(0)}%)`}}}}
+    });
+    $('pacFormaLegend').innerHTML = formaEntries.map(([n,v],i)=>
+      `<div class="leg-item"><div class="leg-dot" style="background:${formaColors[i%formaColors.length]}"></div><span class="leg-name">${n}</span><span class="leg-val">${fmtK(v)}</span></div>`
+    ).join('');
+  } else {
+    $('pacFormaLegend').innerHTML = '<div style="font-size:12px;color:var(--text3)">Sem dados de forma de pagamento</div>';
+  }
+
+  // ── TIMELINE ──
+  $('pacTimelineCount').textContent = `${rows.length} registro${rows.length>1?'s':''}`;
+  const tl = $('pacTimeline');
+  tl.innerHTML = rows.map((d, i) => `
+    <div class="tl-item">
+      ${i < rows.length-1 ? '<div class="tl-line"></div>' : ''}
+      <div class="tl-dot-wrap">
+        <div class="tl-dot ${d.tipo==='Entrada'?'entrada':'saida'}"></div>
+      </div>
+      <div class="tl-card">
+        <div class="tl-card-top">
+          <span class="tl-date">${d.data||'—'}</span>
+          <span class="tl-valor ${d.tipo==='Entrada'?'entrada':'saida'}">${d.tipo==='Entrada'?'+':'-'} ${fmt(d.valor)}</span>
+        </div>
+        <div class="tl-desc">${d.desc||'—'}</div>
+        ${d.paciente ? `<div style="font-size:11px;color:var(--text2);margin-top:1px">👤 ${d.paciente}</div>` : ''}
+        <div class="tl-tags">
+          ${d.forma ? `<span class="tl-tag forma">${d.forma}</span>` : ''}
+          ${d.banco ? `<span class="tl-tag banco">${d.banco}</span>` : ''}
+          ${d.desc  ? `<span class="tl-tag medico">${d.desc}</span>` : ''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function gotoPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  $('page-'+id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'paciente' && DATA.length) initPacPage();
+  // Clear patient context when leaving patient page
+  if (id !== 'paciente') PAC_CONTEXT = null;
+}
+
+function resetDash() {
+  Object.values(CHARTS).forEach(c => c.destroy()); CHARTS = {}; DATA = [];
+  $('dashboard').style.display = 'none'; $('uploadScreen').style.display = 'flex';
+  $('fileInput').value = ''; showErr('');
+}
+
+// ── AI PANEL ──
+let aiVisible = false;
+function toggleAI() {
+  aiVisible = !aiVisible;
+  $('aiPanel').style.display = aiVisible ? 'block' : 'none';
+}
+
+async function autoAnalyze(totalEnt, totalSai, saldo, catOut, catIn, bankNames, byBanco) {
+  $('aiPanel').style.display = 'block'; aiVisible = true;
+  $('aiThinking').style.display = 'flex'; $('aiContent').innerHTML = '';
+
+  const top5out = catOut.slice(0,5).map(([k,v]) => `${k}: ${fmt(v)}`).join(', ');
+  const top3in  = catIn.slice(0,3).map(([k,v]) => `${k}: ${fmt(v)}`).join(', ');
+  const bankSummary = bankNames.slice(0,5).map(b => `${b}: entrada ${fmt(byBanco[b].entrada)}, saída ${fmt(byBanco[b].saida)}`).join('; ');
+  const totalRows = DATA.length;
+
+  const prompt = `Você é um assistente financeiro pessoal analisando dados reais de uma planilha pessoal/familiar brasileira.
+
+DADOS FINANCEIROS:
+- Total Entradas: ${fmt(totalEnt)}
+- Total Saídas: ${fmt(totalSai)}
+- Resultado (Saldo): ${saldo>=0?'+':''}${fmt(saldo)} (${saldo>=0?'SUPERÁVIT':'DÉFICIT'})
+- Total de transações: ${totalRows}
+- Top categorias de saída: ${top5out}
+- Fontes de entrada: ${top3in || 'não identificadas claramente'}
+- Bancos/Cartões: ${bankSummary || 'não identificados'}
+
+Faça uma análise clara, direta e em português do Brasil. Use:
+- <strong>destaque</strong> para pontos importantes
+- <span class="hl-g">valor positivo</span> para números bons (use hl-g)
+- <span class="hl-r">valor negativo</span> para alertas (use hl-r)
+- <span class="hl-b">informação neutra</span> (use hl-b)
+- <ul><li> para listas
+
+Inclua: 1) Resumo do período (2-3 linhas), 2) Principais gastos e observações, 3) Alertas importantes, 4) 2-3 recomendações práticas. Seja direto, útil e empático. Máximo 300 palavras.`;
+
+  try {
+    const text = await callClaude(prompt);
+    if (text === null) return;
+    $('aiThinking').style.display = 'none';
+    $('aiContent').innerHTML = `<div class="ai-content">${text}</div>`;
+  } catch(e) {
+    $('aiThinking').style.display = 'none';
+    $('aiContent').innerHTML = `<div class="ai-content"><div style="color:var(--red);margin-bottom:6px">⚠ ${e.message}</div></div>`;
+  }
+}
+
+async function askAI() {
+  const q = $('aiInput').value.trim();
+  if (!q || DATA.length === 0) return;
+  $('aiSendBtn').disabled = true; $('aiInput').value = '';
+  $('aiThinking').style.display = 'flex';
+
+  const totalEnt = DATA.filter(d=>d.tipo==='Entrada').reduce((s,d)=>s+d.valor,0);
+  const totalSai = DATA.filter(d=>d.tipo==='Saída').reduce((s,d)=>s+d.valor,0);
+  const topCats = Object.entries(DATA.filter(d=>d.tipo==='Saída').reduce((acc,d) => { acc[d.desc||'Outros']=(acc[d.desc||'Outros']||0)+d.valor; return acc; },{})).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v])=>`${k}: ${fmt(v)}`).join(', ');
+
+  const prevContent = $('aiContent').innerHTML;
+
+  const prompt = `Contexto financeiro: Entradas totais ${fmt(totalEnt)}, Saídas totais ${fmt(totalSai)}, principais categorias: ${topCats}.
+
+Pergunta do usuário: ${q}
+
+Responda de forma direta, útil e em português. Use HTML: <strong>, <span class="hl-g">, <span class="hl-r">, <ul><li> quando apropriado. Máximo 200 palavras.`;
+
+  try {
+    const text = await callClaude(prompt);
+    $('aiThinking').style.display = 'none';
+    if (text === null) { $('aiSendBtn').disabled = false; return; }
+    $('aiContent').innerHTML = `${prevContent}<hr style="border:none;border-top:1px solid var(--border);margin:12px 0"><div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-family:'JetBrains Mono',monospace">→ ${q}</div><div class="ai-content">${text}</div>`;
+  } catch(e) {
+    $('aiThinking').style.display = 'none';
+    $('aiContent').innerHTML = prevContent + `<div style="color:var(--red);font-size:12px;margin-top:8px">⚠ ${e.message}</div>`;
+  }
+  $('aiSendBtn').disabled = false;
+}
+
+// ── EXPORT ──
+function openExport() {
+  if (!DATA.length) return;
+  const modal = $('exportModal');
+
+  // ── CONTEXT-AWARE EXPORT ──
+  // If a patient is selected, show patient context banner and lock data to that patient
+  const pacBanner = $('expPacBanner');
+  const expFilters = $('expFiltersSection');
+
+  if (PAC_CONTEXT && PAC_CONTEXT.rows.length) {
+    // Patient mode: show banner, hide general filters
+    if (pacBanner) {
+      pacBanner.style.display = 'flex';
+      $('expPacName').textContent = PAC_CONTEXT.name;
+      $('expPacCount').textContent = PAC_CONTEXT.rows.length + ' registro' + (PAC_CONTEXT.rows.length > 1 ? 's' : '');
+    }
+    if (expFilters) expFilters.style.display = 'none';
+  } else {
+    // Global mode: hide banner, show filters
+    if (pacBanner) pacBanner.style.display = 'none';
+    if (expFilters) expFilters.style.display = 'block';
+
+    const expBanco = $('expBanco'), expCat = $('expCat');
+    expBanco.innerHTML = '<option value="">Todos os bancos</option>';
+    expCat.innerHTML = '<option value="">Todas as categorias</option>';
+    [...new Set(DATA.map(d=>d.banco).filter(b=>b&&b.length>1&&isNaN(parseFloat(b))&&!b.includes('=')))].sort().forEach(b => {
+      expBanco.innerHTML += `<option value="${b}">${b}</option>`;
+    });
+    [...new Set(DATA.map(d=>d.desc).filter(Boolean))].sort().forEach(c => {
+      expCat.innerHTML += `<option value="${c}">${c}</option>`;
+    });
+    $('expTipo').value = ''; expBanco.value = ''; expCat.value = '';
+    document.querySelectorAll('#expTipo, #expBanco, #expCat').forEach(el => {
+      el.onchange = updateExpStats;
+    });
+  }
+
+  updateExpStats();
+  modal.classList.add('open');
+}
+
+function $$(id) { return document.getElementById(id); }
+
+function closeExport() { $('exportModal').classList.remove('open'); }
+
+function getFilteredData() {
+  // If patient context active, return only that patient's rows
+  if (PAC_CONTEXT && PAC_CONTEXT.rows.length) return PAC_CONTEXT.rows;
+  // Otherwise apply global filters
+  const tipo = $('expTipo').value;
+  const banco = $('expBanco').value;
+  const cat = $('expCat').value;
+  return DATA.filter(d =>
+    (!tipo || d.tipo === tipo) &&
+    (!banco || d.banco === banco) &&
+    (!cat || d.desc === cat)
+  );
+}
+
+function updateExpStats() {
+  const rows = getFilteredData();
+  const ent = rows.filter(d=>d.tipo==='Entrada').reduce((s,d)=>s+d.valor,0);
+  const sai = rows.filter(d=>d.tipo==='Saída').reduce((s,d)=>s+d.valor,0);
+  const sal = ent - sai;
+  $('expStatN').textContent = rows.length;
+  $('expStatEnt').textContent = fmtK(ent);
+  $('expStatSai').textContent = fmtK(sai);
+  const ss = $('expStatSaldo');
+  ss.textContent = (sal>=0?'+':'')+fmtK(sal);
+  ss.style.color = sal>=0 ? 'var(--green)' : 'var(--red)';
+}
+
+function showToast(msg) {
+  const t = $('toast'); $('toastMsg').textContent = msg;
+  t.style.display = 'flex';
+  setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+function doExport(type) {
+  const rows = getFilteredData();
+  if (!rows.length) { showToast('Nenhum dado para exportar'); return; }
+  const ts = new Date().toISOString().slice(0,10);
+  const fname = `financeiro_${ts}`;
+
+  if (type === 'csv') exportCSV(rows, fname);
+  else if (type === 'xlsx') exportXLSX(rows, fname);
+  else if (type === 'json') exportJSON(rows, fname);
+  else if (type === 'relatorio') exportRelatorio(rows, fname);
+  else if (type === 'pdf') exportPDF(rows, fname);
+  else if (type === 'whatsapp') exportWhatsApp(rows);
+
+  if (type !== 'whatsapp') closeExport();
+  const toastMsgs = {csv:'CSV exportado!',xlsx:'Excel exportado!',json:'JSON exportado!',relatorio:'Relatório HTML gerado!',pdf:'PDF aberto em nova aba!',whatsapp:'Texto copiado! Cole no WhatsApp 📱'};
+  showToast(toastMsgs[type] || 'Exportado!');
+}
+
+// ── CSV ──
+function exportCSV(rows, fname) {
+  const headers = ['Data','Tipo','Descrição','Paciente/Obs','Forma Pagamento','Banco','Valor'];
+  const sep = ';';
+  const lines = [headers.join(sep)];
+  rows.forEach(d => {
+    const v = d.valor.toFixed(2).replace('.',',');
+    lines.push([d.data, d.tipo, `"${d.desc}"`, `"${d.paciente||''}"`, d.forma, d.banco, v].join(sep));
+  });
+  // Add totals
+  const ent = rows.filter(d=>d.tipo==='Entrada').reduce((s,d)=>s+d.valor,0);
+  const sai = rows.filter(d=>d.tipo==='Saída').reduce((s,d)=>s+d.valor,0);
+  lines.push('');
+  lines.push(`${sep}${sep}${sep}${sep}${sep}Total Entradas${sep}${ent.toFixed(2).replace('.',',')}`);
+  lines.push(`${sep}${sep}${sep}${sep}${sep}Total Saídas${sep}${sai.toFixed(2).replace('.',',')}`);
+  lines.push(`${sep}${sep}${sep}${sep}${sep}Resultado${sep}${(ent-sai).toFixed(2).replace('.',',')}`);
+  const bom = '﻿'; // UTF-8 BOM for Excel
+  dlFile(bom + lines.join('\n'), fname + '.csv', 'text/csv;charset=utf-8;');
+}
+
+// ── XLSX (using SheetJS) ──
+function exportXLSX(rows, fname) {
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Transactions
+  const wsData = [['Data','Tipo','Descrição','Paciente/Obs','Forma Pagamento','Banco','Valor']];
+  rows.forEach(d => wsData.push([d.data, d.tipo, d.desc, d.paciente||'', d.forma, d.banco, d.valor]));
+  // Totals
+  const ent = rows.filter(d=>d.tipo==='Entrada').reduce((s,d)=>s+d.valor,0);
+  const sai = rows.filter(d=>d.tipo==='Saída').reduce((s,d)=>s+d.valor,0);
+  wsData.push([]);
+  wsData.push(['','','','','','Total Entradas', ent]);
+  wsData.push(['','','','','','Total Saídas', sai]);
+  wsData.push(['','','','','','Resultado', ent-sai]);
+  const ws1 = XLSX.utils.aoa_to_sheet(wsData);
+  ws1['!cols'] = [{wch:12},{wch:8},{wch:28},{wch:24},{wch:16},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Transações');
+
+  // Sheet 2: Resumo por categoria
+  const byCat = {};
+  rows.forEach(d => {
+    if (!byCat[d.desc]) byCat[d.desc] = {entrada:0,saida:0};
+    if (d.tipo==='Entrada') byCat[d.desc].entrada += d.valor;
+    else byCat[d.desc].saida += d.valor;
+  });
+  const wsRes = [['Categoria','Total Entradas','Total Saídas','Resultado']];
+  Object.entries(byCat).sort((a,b)=>(b[1].entrada+b[1].saida)-(a[1].entrada+a[1].saida)).forEach(([k,v]) => {
+    wsRes.push([k, v.entrada, v.saida, v.entrada - v.saida]);
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(wsRes);
+  ws2['!cols'] = [{wch:28},{wch:16},{wch:16},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Por Categoria');
+
+  // Sheet 3: Resumo por banco
+  const byBnk = {};
+  rows.forEach(d => {
+    const b = d.banco || 'Sem banco';
+    if (!byBnk[b]) byBnk[b] = {entrada:0,saida:0};
+    if (d.tipo==='Entrada') byBnk[b].entrada += d.valor; else byBnk[b].saida += d.valor;
+  });
+  const wsBnk = [['Banco / Cartão','Total Entradas','Total Saídas','Resultado']];
+  Object.entries(byBnk).forEach(([k,v]) => wsBnk.push([k, v.entrada, v.saida, v.entrada - v.saida]));
+  const ws3 = XLSX.utils.aoa_to_sheet(wsBnk);
+  ws3['!cols'] = [{wch:20},{wch:16},{wch:16},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Por Banco');
+
+  XLSX.writeFile(wb, fname + '.xlsx');
+}
+
+// ── JSON ──
+function exportJSON(rows, fname) {
+  const ent = rows.filter(d=>d.tipo==='Entrada').reduce((s,d)=>s+d.valor,0);
+  const sai = rows.filter(d=>d.tipo==='Saída').reduce((s,d)=>s+d.valor,0);
+  const payload = {
+    exportado_em: new Date().toISOString(),
+    resumo: {
+      total_registros: rows.length,
+      total_entradas: parseFloat(ent.toFixed(2)),
+      total_saidas: parseFloat(sai.toFixed(2)),
+      resultado: parseFloat((ent-sai).toFixed(2)),
+    },
+    transacoes: rows.map(d => ({
+      data: d.data,
+      tipo: d.tipo,
+      descricao: d.desc,
+      paciente: d.paciente || null,
+      forma_pagamento: d.forma || null,
+      banco: d.banco || null,
+      valor: parseFloat(d.valor.toFixed(2)),
+    }))
+  };
+  dlFile(JSON.stringify(payload, null, 2), fname + '.json', 'application/json');
+}
+
+// ── RELATÓRIO HTML ──
+function exportRelatorio(rows, fname) {
+  const ent = rows.filter(d=>d.tipo==='Entrada').reduce((s,d)=>s+d.valor,0);
+  const sai = rows.filter(d=>d.tipo==='Saída').reduce((s,d)=>s+d.valor,0);
+  const sal = ent - sai;
+  const byCat = {}, byBnk = {};
+  rows.forEach(d => {
+    const cat = d.desc || 'Outros';
+    const bnk = d.banco || 'Sem banco';
+    if (!byCat[cat]) byCat[cat] = {entrada:0,saida:0};
+    if (!byBnk[bnk]) byBnk[bnk] = {entrada:0,saida:0};
+    if (d.tipo==='Entrada') { byCat[cat].entrada+=d.valor; byBnk[bnk].entrada+=d.valor; }
+    else { byCat[cat].saida+=d.valor; byBnk[bnk].saida+=d.valor; }
+  });
+  const catRows = Object.entries(byCat).sort((a,b)=>(b[1].saida+b[1].entrada)-(a[1].saida+a[1].entrada));
+  const bnkRows = Object.entries(byBnk).sort((a,b)=>(b[1].entrada+b[1].saida)-(a[1].entrada+a[1].saida));
+  const hoje = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+  const saldoColor = sal>=0?'#22d3a0':'#f5456e';
+
+  const tblRows = rows.slice(0,200).map(d => `
+    <tr>
+      <td>${d.data||'—'}</td>
+      <td><span class="${d.tipo==='Entrada'?'badge-in':'badge-out'}">${d.tipo}</span></td>
+      <td>${d.desc||'—'}</td>
+      <td>${d.paciente||'—'}</td>
+      <td>${d.banco||'—'}</td>
+      <td style="text-align:right;color:${d.tipo==='Entrada'?'#22d3a0':'#f5456e'};font-family:monospace">${d.tipo==='Entrada'?'+':'-'} R$ ${d.valor.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    </tr>`).join('');
+
+  const catTbl = catRows.map(([n,v]) => `
+    <tr>
+      <td>${n}</td>
+      <td style="color:#22d3a0;text-align:right;font-family:monospace">${v.entrada>0?'R$ '+v.entrada.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+      <td style="color:#f5456e;text-align:right;font-family:monospace">${v.saida>0?'R$ '+v.saida.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+      <td style="text-align:right;font-family:monospace;color:${(v.entrada-v.saida)>=0?'#22d3a0':'#f5456e'}">${(v.entrada-v.saida)>=0?'+':''}R$ ${(v.entrada-v.saida).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Relatório Financeiro — ${hoje}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;background:#f4f6f9;color:#1a2035;padding:32px}
+.container{max-width:1100px;margin:0 auto}
+.report-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #e2e8f0}
+.report-title{font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-0.02em}
+.report-sub{font-size:13px;color:#64748b;margin-top:4px}
+.report-date{font-size:12px;color:#94a3b8;text-align:right}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.kpi{background:#fff;border-radius:12px;padding:20px;border:1px solid #e2e8f0;border-top:3px solid}
+.kpi-g{border-top-color:#22d3a0}.kpi-r{border-top-color:#f5456e}.kpi-a{border-top-color:#f5a623}.kpi-b{border-top-color:#4f8ef7}
+.kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:8px}
+.kpi-val{font-size:22px;font-weight:800;letter-spacing:-0.02em;margin-bottom:4px}
+.kpi-g .kpi-val{color:#22d3a0}.kpi-r .kpi-val{color:#f5456e}.kpi-a .kpi-val{color:#f5a623}.kpi-b .kpi-val{color:#4f8ef7}
+.kpi-sub{font-size:11px;color:#94a3b8}
+h2{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#475569;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid #e2e8f0}
+.section{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:20px}
+table{width:100%;border-collapse:collapse}
+thead th{padding:9px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;background:#f8fafc;border-bottom:1px solid #e2e8f0}
+tbody tr{border-bottom:1px solid #f1f5f9}
+tbody tr:hover{background:#f8fafc}
+tbody td{padding:8px 12px;font-size:12px;color:#475569}
+.badge-in{background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600}
+.badge-out{background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600}
+.footer{text-align:center;margin-top:32px;font-size:11px;color:#94a3b8;padding-top:16px;border-top:1px solid #e2e8f0}
+@media print{body{background:#fff;padding:16px}.section{box-shadow:none}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="report-header">
+    <div>
+      <div class="report-title">Relatório Financeiro</div>
+      <div class="report-sub">${rows.length} transações exportadas</div>
+    </div>
+    <div class="report-date">Gerado em<br><strong>${hoje}</strong></div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi kpi-g"><div class="kpi-label">Total Entradas</div><div class="kpi-val">R$ ${ent.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div><div class="kpi-sub">${rows.filter(d=>d.tipo==='Entrada').length} registros</div></div>
+    <div class="kpi kpi-r"><div class="kpi-label">Total Saídas</div><div class="kpi-val">R$ ${sai.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div><div class="kpi-sub">${rows.filter(d=>d.tipo==='Saída').length} registros</div></div>
+    <div class="kpi kpi-a"><div class="kpi-label">Resultado</div><div class="kpi-val" style="color:${saldoColor}">${sal>=0?'+':''}R$ ${Math.abs(sal).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div><div class="kpi-sub">${sal>=0?'Superávit':'Déficit'}</div></div>
+    <div class="kpi kpi-b"><div class="kpi-label">Transações</div><div class="kpi-val">${rows.length}</div><div class="kpi-sub">registros no período</div></div>
+  </div>
+
+  <div class="section">
+    <h2>Resumo por Categoria</h2>
+    <table><thead><tr><th>Categoria</th><th style="text-align:right">Entradas</th><th style="text-align:right">Saídas</th><th style="text-align:right">Resultado</th></tr></thead>
+    <tbody>${catTbl}</tbody></table>
+  </div>
+
+  <div class="section">
+    <h2>Transações (${Math.min(rows.length,200)} registros${rows.length>200?' — limitado a 200':''})</h2>
+    <table><thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Paciente/Obs</th><th>Banco</th><th style="text-align:right">Valor</th></tr></thead>
+    <tbody>${tblRows}</tbody></table>
+  </div>
+
+  <div class="footer">Gerado pelo FinancIA Dashboard &nbsp;·&nbsp; ${hoje}</div>
+</div>
+</body>
+</html>`;
+
+  dlFile(html, fname + '.html', 'text/html;charset=utf-8;');
+}
+
+// ── PDF PROFISSIONAL ──
+function exportPDF(rows, fname) {
+  const hoje = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+  const ent = rows.filter(d=>d.tipo==='Entrada').reduce((s,d)=>s+d.valor,0);
+  const sai = rows.filter(d=>d.tipo==='Saída').reduce((s,d)=>s+d.valor,0);
+  const sal = ent - sai;
+  const saldoColor = sal>=0?'#16a34a':'#dc2626';
+
+  // By category
+  const byCat = {};
+  rows.forEach(d => {
+    if (!byCat[d.desc]) byCat[d.desc] = {entrada:0,saida:0};
+    if (d.tipo==='Entrada') byCat[d.desc].entrada+=d.valor; else byCat[d.desc].saida+=d.valor;
+  });
+  const catRows = Object.entries(byCat).sort((a,b)=>(b[1].entrada+b[1].saida)-(a[1].entrada+a[1].saida));
+
+  // By medico (desc of Entrada)
+  const byMedico = {};
+  rows.filter(d=>d.tipo==='Entrada').forEach(d => {
+    byMedico[d.desc||'Outros'] = (byMedico[d.desc||'Outros']||0)+d.valor;
+  });
+  const medicoRows = Object.entries(byMedico).sort((a,b)=>b[1]-a[1]);
+
+  const tblRows = rows.slice(0,500).map(d=>`
+    <tr>
+      <td>${d.data||'—'}</td>
+      <td><span class="${d.tipo==='Entrada'?'badge-in':'badge-out'}">${d.tipo}</span></td>
+      <td>${d.desc||'—'}</td>
+      <td>${d.paciente||'—'}</td>
+      <td>${d.forma||'—'}</td>
+      <td>${d.banco||'—'}</td>
+      <td style="text-align:right;font-family:monospace;color:${d.tipo==='Entrada'?'#16a34a':'#dc2626'};font-weight:600">${d.tipo==='Entrada'?'+':'-'}R$ ${d.valor.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    </tr>`).join('');
+
+  const catTbl = catRows.map(([n,v])=>`
+    <tr>
+      <td>${n}</td>
+      <td style="text-align:right;color:#16a34a;font-family:monospace">${v.entrada>0?'R$ '+v.entrada.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+      <td style="text-align:right;color:#dc2626;font-family:monospace">${v.saida>0?'R$ '+v.saida.toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+      <td style="text-align:right;font-family:monospace;font-weight:600;color:${(v.entrada-v.saida)>=0?'#16a34a':'#dc2626'}">${(v.entrada-v.saida)>=0?'+':''}R$ ${(v.entrada-v.saida).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+    </tr>`).join('');
+
+  const medicoTbl = medicoRows.map(([n,v])=>`
+    <tr><td>${n}</td><td style="text-align:right;color:#16a34a;font-family:monospace;font-weight:600">R$ ${v.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td></tr>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Relatório Financeiro</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+@page{margin:20mm 15mm}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1e293b;background:#fff;padding:24px 32px}
+.header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:2px solid #0f172a;margin-bottom:20px}
+.header-title{font-size:26px;font-weight:800;color:#0f172a;letter-spacing:-0.02em}
+.header-sub{font-size:12px;color:#64748b;margin-top:3px}
+.header-date{text-align:right;font-size:11px;color:#94a3b8;line-height:1.6}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.kpi{background:#f8fafc;border-radius:10px;padding:14px 16px;border-left:4px solid}
+.kpi-g{border-left-color:#22c55e}.kpi-r{border-left-color:#ef4444}.kpi-a{border-left-color:#f59e0b}.kpi-b{border-left-color:#3b82f6}
+.kpi-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:6px}
+.kpi-val{font-size:18px;font-weight:800;letter-spacing:-0.02em}
+.kpi-g .kpi-val{color:#16a34a}.kpi-r .kpi-val{color:#dc2626}.kpi-a .kpi-val{color:#d97706}.kpi-b .kpi-val{color:#2563eb}
+h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#475569;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid #e2e8f0}
+.section{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:14px;break-inside:avoid}
+table{width:100%;border-collapse:collapse}
+thead th{padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;background:#f8fafc;border-bottom:1px solid #e2e8f0}
+tbody tr{border-bottom:1px solid #f1f5f9}
+tbody td{padding:6px 10px;font-size:11px;color:#475569}
+.badge-in{background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700}
+.badge-out{background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.footer{text-align:center;margin-top:20px;font-size:10px;color:#94a3b8;padding-top:12px;border-top:1px solid #e2e8f0}
+@media print{.no-print{display:none}body{padding:0}}
+.print-btn{position:fixed;bottom:20px;right:20px;background:#0f172a;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3)}
+.print-btn:hover{background:#1e293b}
+</style>
+</head>
+<body>
+<button class="print-btn no-print" onclick="window.print()">🖨️ Salvar como PDF</button>
+<div class="header">
+  <div>
+    <div class="header-title">Relatório Financeiro</div>
+    <div class="header-sub">${rows.length} transações · Gerado pelo FinancIA</div>
+  </div>
+  <div class="header-date">Gerado em<br><strong>${hoje}</strong></div>
+</div>
+<div class="kpi-grid">
+  <div class="kpi kpi-g"><div class="kpi-label">Total Entradas</div><div class="kpi-val">R$ ${ent.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
+  <div class="kpi kpi-r"><div class="kpi-label">Total Saídas</div><div class="kpi-val">R$ ${sai.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
+  <div class="kpi kpi-a"><div class="kpi-label">Resultado</div><div class="kpi-val" style="color:${saldoColor}">${sal>=0?'+':''}R$ ${Math.abs(sal).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
+  <div class="kpi kpi-b"><div class="kpi-label">Transações</div><div class="kpi-val">${rows.length}</div></div>
+</div>
+<div class="two-col">
+  <div class="section">
+    <h2>Entradas por Médico</h2>
+    <table><thead><tr><th>Médico / Categoria</th><th style="text-align:right">Total</th></tr></thead>
+    <tbody>${medicoTbl}</tbody></table>
+  </div>
+  <div class="section">
+    <h2>Resumo por Categoria</h2>
+    <table><thead><tr><th>Categoria</th><th style="text-align:right">Entradas</th><th style="text-align:right">Saídas</th><th style="text-align:right">Resultado</th></tr></thead>
+    <tbody>${catTbl}</tbody></table>
+  </div>
+</div>
+<div class="section">
+  <h2>Transações (${Math.min(rows.length,500)} registros${rows.length>500?' — limitado a 500':''})</h2>
+  <table><thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Paciente/Obs</th><th>Forma</th><th>Banco</th><th style="text-align:right">Valor</th></tr></thead>
+  <tbody>${tblRows}</tbody></table>
+</div>
+<div class="footer">FinancIA Dashboard · ${hoje}</div>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+// ── WHATSAPP ──
+function exportWhatsApp(rows) {
+  const ent = rows.filter(d=>d.tipo==='Entrada').reduce((s,d)=>s+d.valor,0);
+  const sai = rows.filter(d=>d.tipo==='Saída').reduce((s,d)=>s+d.valor,0);
+  const sal = ent - sai;
+  const hoje = new Date().toLocaleDateString('pt-BR');
+
+  // By medico
+  const byMed = {};
+  rows.filter(d=>d.tipo==='Entrada').forEach(d => {
+    byMed[d.desc||'Outros'] = (byMed[d.desc||'Outros']||0)+d.valor;
+  });
+  const medLines = Object.entries(byMed).sort((a,b)=>b[1]-a[1]).slice(0,8)
+    .map(([k,v])=>`  • ${k}: R$ ${v.toLocaleString('pt-BR',{minimumFractionDigits:2})}`).join('\n');
+
+  // Top saidas
+  const bySai = {};
+  rows.filter(d=>d.tipo==='Saída').forEach(d => {
+    bySai[d.desc||'Outros'] = (bySai[d.desc||'Outros']||0)+d.valor;
+  });
+  const saiLines = Object.entries(bySai).sort((a,b)=>b[1]-a[1]).slice(0,5)
+    .map(([k,v])=>`  • ${k}: R$ ${v.toLocaleString('pt-BR',{minimumFractionDigits:2})}`).join('\n');
+
+  const msg = `📊 *RESUMO FINANCEIRO*
+🗓️ ${hoje} · ${rows.length} transações
+
+💰 *ENTRADAS:* R$ ${ent.toLocaleString('pt-BR',{minimumFractionDigits:2})}
+💸 *SAÍDAS:* R$ ${sai.toLocaleString('pt-BR',{minimumFractionDigits:2})}
+${sal>=0?'✅':'⚠️'} *RESULTADO:* ${sal>=0?'+':''}R$ ${sal.toLocaleString('pt-BR',{minimumFractionDigits:2})} ${sal>=0?'(Superávit)':'(Déficit)'}
+
+📋 *ENTRADAS POR MÉDICO:*
+${medLines}
+
+📋 *PRINCIPAIS SAÍDAS:*
+${saiLines}
+
+_Gerado pelo FinancIA_ 🤖`;
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(msg).then(() => {
+      closeExport();
+      showToast('Texto copiado! Cole no WhatsApp 📱');
+    }).catch(() => {
+      fallbackCopy(msg);
+    });
+  } else {
+    fallbackCopy(msg);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); closeExport(); showToast('Texto copiado! Cole no WhatsApp 📱'); }
+  catch(e) { alert(text); }
+  document.body.removeChild(ta);
+}
+
+
+// ── DOWNLOAD HELPER ──
+function dlFile(content, filename, mime) {
+  const blob = new Blob([content], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+
+// Re-trigger auto analysis when key is configured after data is loaded
+function triggerAutoAnalyze() {
+  if (!DATA.length) return;
+  $('aiPanel').style.display = 'block';
+  aiVisible = true;
+  $('aiContent').innerHTML = '';
+  const totalEnt = DATA.filter(d=>d.tipo==='Entrada').reduce((s,d)=>s+d.valor,0);
+  const totalSai = DATA.filter(d=>d.tipo==='Saída').reduce((s,d)=>s+d.valor,0);
+  const saldo = totalEnt - totalSai;
+  const byCatOut = {}, byCatIn = {}, byBanco = {};
+  DATA.forEach(d => {
+    if (d.tipo==='Entrada') byCatIn[d.desc||'Outros'] = (byCatIn[d.desc||'Outros']||0)+d.valor;
+    else byCatOut[d.desc||'Outros'] = (byCatOut[d.desc||'Outros']||0)+d.valor;
+    const b = d.banco||'N/A';
+    if (!byBanco[b]) byBanco[b]={entrada:0,saida:0};
+    if(d.tipo==='Entrada') byBanco[b].entrada+=d.valor; else byBanco[b].saida+=d.valor;
+  });
+  const catOutSorted = Object.entries(byCatOut).sort((a,b)=>b[1]-a[1]);
+  const catInSorted  = Object.entries(byCatIn).sort((a,b)=>b[1]-a[1]);
+  autoAnalyze(totalEnt, totalSai, saldo, catOutSorted, catInSorted, Object.keys(byBanco), byBanco);
+}
+
+// Close modal on ESC
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeExport(); });
+
+</script>
+</body>
 </html>
