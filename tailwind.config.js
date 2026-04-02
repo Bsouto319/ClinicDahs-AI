@@ -7,14 +7,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#050505',
-        card: '#0a0a0a',
-        accent: '#39ff14', // Neon Green
-        secondary: '#9333ea', // Purple
+        accent: {
+          DEFAULT: '#39ff14',
+          500: '#39ff14',
+        },
+        secondary: {
+          DEFAULT: '#9333ea',
+          500: '#9333ea',
+        },
       },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-      }
     },
   },
   plugins: [],
